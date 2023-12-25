@@ -1,0 +1,37 @@
+<html>
+	<head>
+		<title>Title Вывод</title>
+		<style> table { font-family: "Lucida Sans Unicode", "Lucida Grande", Sans-Serif; font-size: 14px; border-radius: 10px; border-spacing: 0; text-align: center; } .dn { color: black; padding: 10px 20px; } .no {color:#b0b0b0;} .yes {color: green;} tr, th, td { border-style: solid; border-width: 0 1px 1px 0; border-color: white; } th:first-child { border-top-left-radius: 10px; } th:last-child { border-top-right-radius: 10px; border-right: none; } .head { padding: 10px 20px; background: plum; color: white } td { border-style: solid; border-width: 1px; border-color:black; } tr:last-child td:first-child { border-radius: 0 0 0 10px; } tr:last-child td:last-child { border-radius: 0 0 10px 0; } tr td:last-child { border-right: none; } th { background-color: #5a58ad; color: white; text-shadow: 0 1px 1px #2D2020; padding: 10px 20px; }</style>
+		<meta charset="utf-8">
+	</head>
+	<body>
+		<div>
+			<table border>
+				<th align="center" colspan="{{title[1]}}">{{title[0]}}</th>
+				<tr class="th" style="">
+					<td rowspan="2">№</td>
+					<td rowspan="2">ФИО</td>
+					{% for i in range(0, mouthNames|length) %}
+					<td colspan="{{ spans[i] }}">{{mouthNames[i]}}</td>
+					{% endfor %}
+				</tr>
+				<tr class="dn">{% for i in range(0, new_list[0]|length) %}
+					<td align="center">{{new_list[1][i]}}<br>{{new_list[2][i]}}</td>
+					{% endfor %}
+				</tr>
+				{% for c in range(0, childrens|length) %}
+				<tr>
+					<td align="center">{{ c + 1 }}</td>
+					<td align="left">{{childrens[c]['kid_last_name']}} {{childrens[c]['kid_first_name']}} {{childrens[c]['kid_patro_name']}}</td>
+					{% for i in range(0, rowsChildrens[c]|length) %} {% if rowsChildrens[c][i] == 1 %}
+					<td align="center" class="yes">&#10004;</td>
+					{% else %}
+					<td align="center" class="no">&#10008;</td>
+					{% endif %} {% endfor %}
+				</tr>
+				{% endfor %}
+			</tr>
+		</table>
+	</div>
+</body>
+</html>
