@@ -1,6 +1,7 @@
 import codecs
 import datetime
 import os
+import random
 
 import pandas
 import requests
@@ -493,6 +494,7 @@ def getListChildrensFromOrderAnyGroups(groups):
 #Дистанционное 3022
 #
 def close_day(date, theme, type, description):
+    percentagevisits = 80
     global g_inp, group_id_val
     group_id_val = groups[int(g_inp)]['id']
     group_id = groups[int(g_inp)]['id']
@@ -519,9 +521,14 @@ def close_day(date, theme, type, description):
     }
 
     for c in childrens:
+        visit = random.randint(0, 100)
+        if visit < percentagevisits:
+            visit = True
+        else:
+            visit = False
         kid_id = c['kid_id']
         day_url_POST = "https://booking.dop29.ru/api/attendance/save" #date group_id kid_id value:true
-        payload = {'date':date,'group_id':group_id, 'kid_id':kid_id, 'value':True}
+        payload = {'date':date,'group_id':group_id, 'kid_id':kid_id, 'value':visit}
         r = session.post(url=day_url_POST, headers=headers, data=json.dumps(payload))
         b = json.loads(r.text)
         #print(b["success"])
