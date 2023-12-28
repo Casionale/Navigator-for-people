@@ -16,6 +16,17 @@ from docx import Document
 import pandas as pd
 import numpy
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 url = "https://booking.dop29.ru/api/user/login"
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"
 
@@ -31,6 +42,7 @@ str_login = file_login.read().split('\n')
 email = str_login[0]
 password = str_login[1]
 YEAR = str_login[2]
+
 
 session = requests.Session()
 r = session.post(url, headers={
@@ -68,8 +80,7 @@ user = json_string['data']['user']
 
 MAX_GROUPS_COUNT = 500
 
-new_url = 'https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length='+str(MAX_GROUPS_COUNT)
-r = session.get(new_url, headers={
+headers = {
     'Host': 'booking.dop29.ru',
     'User-Agent': user_agent,
     'Accept': '*/*',
@@ -86,7 +97,10 @@ r = session.get(new_url, headers={
     'Sec-Fetch-Mode': 'cors',
     'Sec-Fetch-Site': 'same-origin',
     'TE': 'trailers'
-})
+}
+
+new_url = 'https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length='+str(MAX_GROUPS_COUNT)
+r = session.get(new_url, headers=headers)
 
 b = json.loads(r.text)
 groups = b['data']
@@ -96,24 +110,7 @@ if int(b['recordsFiltered']) > len(groups):
 
     new_url = 'https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length=' + str(
         MAX_GROUPS_COUNT)+'&page=2&start='+str(len(groups))
-    r = session.get(new_url, headers={
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    })
+    r = session.get(new_url, headers=headers)
 
     b = json.loads(r.text)
     groups.extend(b['data'])
@@ -129,24 +126,7 @@ def printChildren():
     year = YEAR
     new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + group_id_val + '"},{"property":"academic_year_id","value":"' + YEAR + '"},{"property":"dateStart","value":"'+str(int(YEAR)+1)+'-09-01 00:00:00"},{"property":"dateEnd","value":"'+YEAR+'-05-31 23:59:59"}]'
     buf = new_url
-    r = session.get(new_url, headers={
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    })
+    r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
     list_childrens = b['data']
     new_list_childrens = []
@@ -173,24 +153,7 @@ def stat_of_ages():
         new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
             group_id_val) + '"},{"property":"academic_year_id","value":"' + str(
             YEAR) + '"},{"property":"dateStart","value":"'+YEAR+'-12-01 00:00:00"},{"property":"dateEnd","value":"'+YEAR+'-12-31 23:59:59"}]'
-        r = session.get(new_url, headers={
-            'Host': 'booking.dop29.ru',
-            'User-Agent': user_agent,
-            'Accept': '*/*',
-            'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Authorization': 'Bearer ' + access_token,
-            'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-            'X-Requested-With': 'XMLHttpRequest',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Referer': 'https://booking.dop29.ru/admin/',
-            'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'TE': 'trailers'
-        })
+        r = session.get(new_url, headers=headers)
         b = json.loads(r.text)
         list_childrens = b['data']
         new_list_childrens = []
@@ -213,24 +176,7 @@ def get_childrens():
     new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
         group_id_val) + '"},{"property":"academic_year_id","value":"' + str(
         YEAR) + '"},{"property":"dateStart","value":"' + YEAR + '-12-01 00:00:00"},{"property":"dateEnd","value":"' + YEAR + '-12-31 23:59:59"}]'
-    r = session.get(new_url, headers={
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    })
+    r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
     list_childrens = b['data']
     new_list_childrens = []
@@ -244,24 +190,7 @@ def printGroup():
     print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
     new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
         group_id_val) + '"},{"property":"academic_year_id","value":"' + str(YEAR) + '"}]'
-    r = session.get(new_url, headers={
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    })
+    r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
     list_childrens = b['data']
     new_list_childrens = []
@@ -379,6 +308,9 @@ def printGroup():
 def getListOrganisingGroups(group):
     global g_inp, group_id_val
     template = "Список организованных групп ШАБЛОН.docx"
+    if not os.path.isfile(template):
+        print(f"{bcolors.WARNING}Файл шаблона найти не удалось, сорян 👉👈{bcolors.ENDC}")
+        return
     doc = Document(template)
     g_inp = int(group)
     group_id_val = groups[int(group)]['id']
@@ -433,47 +365,13 @@ def getListChildrensFromOrder(group):
 
     new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":'+YEAR+',"comparison":"eq"},{"property":"event_id","value":'+ groups[g_inp]['event_id'] +',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(group_id_val) + '","comparison":"eq"},{"property":"state","value":["approve"],"comparison":"in"}]'
 
-    r = session.get(new_url, headers={
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    })
+    r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
     list_childrens = b['data']
     list_names = []
     for children in list_childrens:
         url_child = 'https://booking.dop29.ru/api/rest/kid/'+children['kid_id']
-        r = session.get(url_child, headers={
-            'Host': 'booking.dop29.ru',
-            'User-Agent': user_agent,
-            'Accept': '*/*',
-            'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Authorization': 'Bearer ' + access_token,
-            'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-            'X-Requested-With': 'XMLHttpRequest',
-            'DNT': '1',
-            'Connection': 'keep-alive',
-            'Referer': 'https://booking.dop29.ru/admin/',
-            'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-            'Sec-Fetch-Dest': 'empty',
-            'Sec-Fetch-Mode': 'cors',
-            'Sec-Fetch-Site': 'same-origin',
-            'TE': 'trailers'
-        })
+        r = session.get(url_child, headers=headers)
         child = json.loads(r.text)['data'][0]
         list_names.append(child['last_name'] + " " + child['first_name'] + " " + child['patro_name'])
 
@@ -500,25 +398,6 @@ def close_day(date, theme, type, description):
     group_id = groups[int(g_inp)]['id']
 
     childrens = get_childrens()
-
-    headers = {
-        'Host': 'booking.dop29.ru',
-        'User-Agent': user_agent,
-        'Accept': '*/*',
-        'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Authorization': 'Bearer ' + access_token,
-        'X-REQUEST-ID': '7bd411c3-54ce-4bba-9ee1-7c5091da6d1a',
-        'X-Requested-With': 'XMLHttpRequest',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Referer': 'https://booking.dop29.ru/admin/',
-        'Cookie': 'io=lVluIaMvSTa4ImFmB5C9',
-        'Sec-Fetch-Dest': 'empty',
-        'Sec-Fetch-Mode': 'cors',
-        'Sec-Fetch-Site': 'same-origin',
-        'TE': 'trailers'
-    }
 
     for c in childrens:
         visit = random.randint(0, 100)
@@ -588,89 +467,117 @@ if filter_choise == 1:
 
         print("Выбраны {0} групп".format(len(groups)))
 
-choose = input('0 Печать информации детей\n'
-               '1 Печать журнала\n'
-               '2 Печать списка организованных групп\n'
-               '3 Печать статистики по возрастам\n'
-               '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
-               '5 ! Внести в навигатор свои грязные буквы')
+while True:
+    choose = input(bcolors.OKGREEN + 'МЕНЮ'+bcolors.ENDC+'\n'
+                   '0 Печать информации детей\n'
+                   '1 Печать журнала\n'
+                   '2 Печать списка организованных групп\n'
+                   '3 Печать статистики по возрастам\n'
+                   '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
+                   '5 ! Внести в навигатор свои грязные буквы\n'
+                   '# Вернуться в главное меню (во всей программе)')
 
-i = 0
-if choose == '1':
-    print('Группы')
-    for g in groups:
-        i = i + 1
-        print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-    print("-1 ПЕЧАТЬ ВСЕХ")
-    print('Какую группу вывести на печать? ')
-    g_inp = int(input())
-    if g_inp != -1:
-        group_id_val = groups[g_inp]['id']
-        printGroup()
-    else:
-        for i in range(0, len(groups)):
-            g_inp = i
-            group_id_val = groups[i]['id']
-            printGroup()
-if choose == '0':
-    print('Группы')
-    for g in groups:
-        i = i + 1
-        print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-    print('Какую группу вывести на печать? ')
+    i = 0
 
-    groupss = input().split(' ')
-
-    group = int(groupss[0])
-    if group != -1:
-        for group in groupss:
-            g_inp = int(group)
+    if choose == '1':
+        print('Группы')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+        print("-1 ПЕЧАТЬ ВСЕХ")
+        print('Какую группу вывести на печать? ')
+        input_str = input()
+        if input_str == '#':
+            continue
+        g_inp = int(input_str)
+        if g_inp != -1:
             group_id_val = groups[g_inp]['id']
-            printChildren()
-    else:
-        for i in range(0, len(groups)):
-            g_inp = i
-            group_id_val = groups[i]['id']
-            printChildren()
+            printGroup()
+        else:
+            for i in range(0, len(groups)):
+                g_inp = i
+                group_id_val = groups[i]['id']
+                printGroup()
+    if choose == '0':
+        print('Группы')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+        print('Какую группу вывести на печать? ')
 
-if choose == '2':
-    print('Группы для генерации списка организованных групп: \n')
-    for g in groups:
-        i = i + 1
-        print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-    getListOrganisingGroupsAnyGroup(input('Выберите группу'))
+        input_str = input()
+        if input_str == '#':
+            continue
+
+        groupss = input_str.split(' ')
+
+        group = int(groupss[0])
+        if group != -1:
+            for group in groupss:
+                g_inp = int(group)
+                group_id_val = groups[g_inp]['id']
+                printChildren()
+        else:
+            for i in range(0, len(groups)):
+                g_inp = i
+                group_id_val = groups[i]['id']
+                printChildren()
+
+    if choose == '2':
+        print('Группы для генерации списка организованных групп: \n')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+
+        input_str = input('Выберите группу')
+        if input_str == '#':
+            continue
+
+        getListOrganisingGroupsAnyGroup(input_str)
 
 
-if choose == '3':
-    stat_of_ages()
+    if choose == '3':
+        stat_of_ages()
 
-if choose == '4':
-    print('Группы')
-    for g in groups:
-        i = i + 1
-        print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-    print('Какую группу вывести на печать? ')
-    getListChildrensFromOrderAnyGroups(input())
+    if choose == '4':
+        print('Группы')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+        print('Какую группу вывести на печать? ')
 
-if choose == '5':
-    filename = input("Введи название файла плес")
-    df = pd.read_excel(filename) #25849.xlsx
+        input_str = input()
+        if input_str == '#':
+            continue
 
-    #for row in df.itertuples():
-        #if not pandas.isnull(row[2]):
-            #print("{0} {1} {2} {3}".format(row[2],row[3],row[4],row[5]))
+        getListChildrensFromOrderAnyGroups(input_str)
 
-    print('Группы')
-    for g in groups:
-        i = i + 1
-        print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+    if choose == '5':
+        filename = input("Введи название файла плес")
 
-    g_inp = int(input("Выбери группу"))-1
+        if filename == '#':
+            continue
 
-    print("Статус:",end="")
+        df = pd.read_excel(filename) #25849.xlsx
 
-    for row in df.itertuples():
-        if not pandas.isnull(row[2]):
-            close_day(row[2].strftime('%Y-%m-%d'), row[3], row[4], row[5])
-            print("\rСтатус: {0}".format(str(row[2])), end="")
-    pass
+        #for row in df.itertuples():
+            #if not pandas.isnull(row[2]):
+                #print("{0} {1} {2} {3}".format(row[2],row[3],row[4],row[5]))
+
+        print('Группы')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+
+        input_str = input("Выбери группу")
+        if input_str == '#':
+            continue
+
+        g_inp = int(input_str)-1
+
+        print("Статус:",end="")
+
+        for row in df.itertuples():
+            if not pandas.isnull(row[2]):
+                close_day(row[2].strftime('%Y-%m-%d'), row[3], row[4], row[5])
+                print("\rСтатус: {0}".format(str(row[2])), end="")
