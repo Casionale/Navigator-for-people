@@ -124,16 +124,7 @@ def printChildren():
     global new_url, r, b, i
     print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
     year = YEAR
-    new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + group_id_val + '"},{"property":"academic_year_id","value":"' + YEAR + '"},{"property":"dateStart","value":"'+str(int(YEAR)+1)+'-09-01 00:00:00"},{"property":"dateEnd","value":"'+YEAR+'-05-31 23:59:59"}]'
-    buf = new_url
-    r = session.get(new_url, headers=headers)
-    b = json.loads(r.text)
-    list_childrens = b['data']
-    new_list_childrens = []
-    for i in range(0, len(list_childrens)):
-        if list_childrens[i]['type_active'] == 1:
-            new_list_childrens.append(list_childrens[i])
-    list_childrens = new_list_childrens
+    list_childrens = get_childrens()
     f = open('Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt", 'w')
     for c in list_childrens:
         f.write(c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'] + '\t' +
@@ -142,27 +133,25 @@ def printChildren():
     return 'Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt"
 
 def stat_of_ages():
-    global new_url, r, b, i
+    global new_url, r, b, i, group_id_val
     ages = {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0}
+    sum_girls = 0
+    sum_childs = 0
     for i in range(0, len(groups)):
         g_inp = i
         group_id_val = groups[i]['id']
 
         print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
-        year = YEAR
-        new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
-            group_id_val) + '"},{"property":"academic_year_id","value":"' + str(
-            YEAR) + '"},{"property":"dateStart","value":"'+YEAR+'-12-01 00:00:00"},{"property":"dateEnd","value":"'+YEAR+'-12-31 23:59:59"}]'
-        r = session.get(new_url, headers=headers)
-        b = json.loads(r.text)
-        list_childrens = b['data']
-        new_list_childrens = []
-        for i in range(0, len(list_childrens)):
-            if list_childrens[i]['type_active'] == 1:
-                new_list_childrens.append(list_childrens[i])
-        list_childrens = new_list_childrens
+        list_childrens = get_childrens()
+
         for c in list_childrens:
             ages[c['kid_age']] += 1
+            c_info = get_all_info_child(c['kid_id'])
+            sum_childs += 1
+            if c_info['sex'] == 'W':
+                sum_girls += 1
+
+
 
     f = open("Статистика по возрастам.txt", "w")
     for i in range(0, 19):
@@ -170,6 +159,8 @@ def stat_of_ages():
             continue
         else:
             f.write(str(i) + " лет " + str(ages[i]) + " человек\n")
+
+    f.write("Всего: {0}, из них девочек: {1}".format(sum_childs, sum_girls))
     f.close()
 
 def get_childrens():
@@ -184,6 +175,14 @@ def get_childrens():
         if list_childrens[i]['type_active'] == 1:
             new_list_childrens.append(list_childrens[i])
     return new_list_childrens
+
+def get_all_info_child(id):
+    new_url = "https://booking.dop29.ru/api/rest/kid/{0}?_dc=1704971612231".format(id)
+    r = session.get(new_url, headers=headers)
+    b = json.loads(r.text)
+    child = b['data'][0]
+    return child
+
 
 def printGroup():
     global new_url, r, b, i
@@ -309,7 +308,8 @@ def getListOrganisingGroups(group):
     global g_inp, group_id_val
     template = "Список организованных групп ШАБЛОН.docx"
     if not os.path.isfile(template):
-        print(f"{bcolors.WARNING}Файл шаблона найти не удалось, сорян 👉👈{bcolors.ENDC}")
+        os.system("")
+        print(f"{bcolors.WARNING}Файл шаблона найти не удалось, сорян 👉👈 {bcolors.ENDC}")
         return
     doc = Document(template)
     g_inp = int(group)
@@ -468,6 +468,7 @@ if filter_choise == 1:
         print("Выбраны {0} групп".format(len(groups)))
 
 while True:
+    os.system("")
     choose = input(bcolors.OKGREEN + 'МЕНЮ'+bcolors.ENDC+'\n'
                    '0 Печать информации детей\n'
                    '1 Печать журнала\n'
