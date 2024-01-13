@@ -32,11 +32,6 @@ user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 
 
 dir = os.getcwd()
 
-email = 'kirill.bagrow@yandex.ru'
-password = 'CasioTitanium1'
-
-# email = input("Введите email\n")
-# password = input("Введите password\n")
 file_login = open(dir + '\\login.ini', 'r')
 str_login = file_login.read().split('\n')
 email = str_login[0]
