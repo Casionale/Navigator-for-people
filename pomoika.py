@@ -27,16 +27,27 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+class progressBar():
+    size = 30
+    filled = '█'
+    unfilled = '-'
+
+    def __init__(self):
+        self.size = 30
+        self.filled = '█'
+        self.unfilled = '-'
+
+    def getPB(self, all, progress):
+        percent = int((progress * 100) / all)
+        filled_count = int((self.size / 100) * percent)
+        fil = str(self.filled*filled_count) + str(self.unfilled * (self.size-filled_count))
+        return "{0}% {1} 100%".format(percent, fil)
+
 url = "https://booking.dop29.ru/api/user/login"
 user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"
 
 dir = os.getcwd()
 
-email = 'kirill.bagrow@yandex.ru'
-password = 'CasioTitanium1'
-
-# email = input("Введите email\n")
-# password = input("Введите password\n")
 file_login = open(dir + '\\login.ini', 'r')
 str_login = file_login.read().split('\n')
 email = str_login[0]
@@ -137,21 +148,45 @@ def stat_of_ages():
     ages = {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0}
     sum_girls = 0
     sum_childs = 0
+    error_sex = 0
+    error_child = []
+
+    ages_of_sections ={} #секция: [мальчики, девочки]
     for i in range(0, len(groups)):
         g_inp = i
         group_id_val = groups[i]['id']
+        event_id = groups[i]['event_id']
 
-        print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
+        #print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
+        pb = progressBar()
+        print("\r"+pb.getPB(all=len(groups), progress=i)+' Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'], end=' ')
         list_childrens = get_childrens()
+        section = get_section(event_id)
 
+        if section not in ages_of_sections:
+            ages_of_sections[section] = [0],[0],{0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0} #Мальчики, девочки
+
+        iterator_childrens = 0
         for c in list_childrens:
             ages[c['kid_age']] += 1
+            ages_of_sections[section][2][c['kid_age']] += 1
             c_info = get_all_info_child(c['kid_id'])
             sum_childs += 1
-            if c_info['sex'] == 'W':
-                sum_girls += 1
 
+            try:
+                if c_info['sex'] == 'W':
+                    sum_girls += 1
+                    ages_of_sections[section][1][0] += 1
+                else:
+                    ages_of_sections[section][0][0] += 1
+            except:
+                error_sex += 1
+                error_child.append("{0} {1} {2} {3}".format(c['kid_last_name'],c['kid_first_name'],c['kid_patro_name'],c['kid_birthday']))
 
+            iterator_childrens += 1
+            print("\r" + pb.getPB(all=len(groups), progress=i) + ' Выбрана группа ' + groups[g_inp][
+                'program_name'] + ' ' + groups[g_inp]['name'], end=' ')
+            print(pb.getPB(all=len(list_childrens), progress=iterator_childrens), end="")
 
     f = open("Статистика по возрастам.txt", "w")
     for i in range(0, 19):
@@ -161,7 +196,28 @@ def stat_of_ages():
             f.write(str(i) + " лет " + str(ages[i]) + " человек\n")
 
     f.write("Всего: {0}, из них девочек: {1}".format(sum_childs, sum_girls))
+    f.write("\nНе удалось получить информацию у {0} человек:".format(error_sex))
+    for l in error_child:
+        f.write(l)
+    for key, value in ages_of_sections.items():
+        f.write("\n\nНаправленность: {0}, М {1}, Ж {2}\n\n".format(key, value[0][0], value[1][0]))
+
+        for i in range(0, 19):
+            if value[2][i] == 0:
+                continue
+            else:
+                f.write(str(i) + " лет " + str(value[2][i]) + " человек\n")
+
     f.close()
+
+def get_section(event_id):
+    new_url = 'https://booking.dop29.ru/api/rest/events/{0}?_dc=1705994318220'.format(event_id)
+    r = session.get(new_url, headers=headers)
+    b = json.loads(r.text)
+    try:
+        return b['data'][0]['section']
+    except:
+        return []
 
 def get_childrens():
     new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
@@ -180,8 +236,11 @@ def get_all_info_child(id):
     new_url = "https://booking.dop29.ru/api/rest/kid/{0}?_dc=1704971612231".format(id)
     r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
-    child = b['data'][0]
-    return child
+    try:
+        child = b['data'][0]
+        return child
+    except:
+        return []
 
 
 def printGroup():
@@ -386,6 +445,7 @@ def getListChildrensFromOrderAnyGroups(groups):
         getListChildrensFromOrder(int(group))
 
 
+
 #Типы занятий
 #Практическая работа 9732
 #Учебное 7198
@@ -421,6 +481,20 @@ def close_day(date, theme, type, description):
     #print(b["success"])
     pass
 
+def number_6(target_sum):
+    global group_id_val
+    problem_groups = []
+    for g in groups:
+        id = g['id']
+        group_id_val = id
+        childrens = get_childrens()
+        if len(childrens) < target_sum and len(childrens) != 0:
+            problem_groups.append("Группа: {0}, {1} человек!".format (g['program_name'] + " " + g['name'], len(childrens)))
+
+    f = open("ПРОБЛЕМНЫЕ ГРУППЫ.txt", "w")
+    for g in problem_groups:
+        f.write(g + '\n')
+    f.close()
 
 FILTER = False
 
@@ -476,6 +550,7 @@ while True:
                    '3 Печать статистики по возрастам\n'
                    '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
                    '5 ! Внести в навигатор свои грязные буквы\n'
+                   '6 Найти проблемные группы\n'
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -582,3 +657,10 @@ while True:
             if not pandas.isnull(row[2]):
                 close_day(row[2].strftime('%Y-%m-%d'), row[3], row[4], row[5])
                 print("\rСтатус: {0}".format(str(row[2])), end="")
+
+    if choose == '6':
+        input_str = input("Группы до какого количества человек Вы хотели бы найти?")
+        if input_str == '#':
+            continue
+        target_count = int(input_str)
+        number_6(target_count)
