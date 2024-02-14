@@ -496,6 +496,44 @@ def number_6(target_sum):
         f.write(g + '\n')
     f.close()
 
+def find_duplicates():
+    global group_id_val
+    childs_and_groups = {}
+    for g in groups:
+        id = g['id']
+        group_id_val = id
+        childs = get_childrens()
+
+        for child in childs:
+            full_name = child['kid_last_name'] + ' ' + child['kid_first_name'] + ' ' + child['kid_patro_name']
+            group_name = g['program_name'] + ' ' + g['name']
+
+            if full_name in childs_and_groups:
+                childs_and_groups[full_name].append(group_name)
+            else:
+                childs_and_groups[full_name] = []
+                childs_and_groups[full_name].append(group_name)
+
+            pass
+
+    duplicated = {}
+    for key in childs_and_groups:
+        if len(childs_and_groups[key]) > 1:
+            duplicated[key] = childs_and_groups[key]
+
+    f = open("Дубликаты.txt", "w")
+    for key in duplicated:
+
+        str_groups = '\n'
+        for i in range(len(duplicated[key])):
+            str_groups += '\t' + duplicated[key][i] + '\n'
+        str_groups += '\n'
+
+        f.write('Групп ' + str(len(duplicated[key])) + ' ' + key + ' ' + str_groups + '\n')
+    f.close()
+
+
+
 FILTER = False
 
 filter_choise = int(input("Режим фильтра 0 - нет, 1 - да: "))
@@ -551,6 +589,7 @@ while True:
                    '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
                    '5 ! Внести в навигатор свои грязные буквы\n'
                    '6 Найти проблемные группы\n'
+                   '7 Найти дубликаты детей\n'
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -665,3 +704,6 @@ while True:
             continue
         target_count = int(input_str)
         number_6(target_count)
+
+    if choose == '7':
+        find_duplicates()
