@@ -588,9 +588,10 @@ while True:
         groupss = input_str.split(' ')
 
         group = int(groupss[0])
+
         if group != -1:
             for group in groupss:
-                g_inp = int(group)
+                g_inp = int(group) - 1
                 group_id_val = groups[g_inp]['id']
                 printChildren()
         else:
