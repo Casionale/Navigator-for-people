@@ -27,6 +27,12 @@ class bcolors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
 
+class rgbcolors:
+    def Color(r, g, b):
+        return '\033[38;2;{0};{1};{2}m '.format(r,g,b)
+    def End():
+        return '\033[0m'
+
 class progressBar():
     size = 30
     filled = '█'
@@ -583,11 +589,14 @@ while True:
     os.system("")
     choose = input(bcolors.OKGREEN + 'МЕНЮ'+bcolors.ENDC+'\n'
                    '0 Печать информации детей\n'
-                   '1 Печать журнала\n'
-                   '2 Печать списка организованных групп\n'
+                   '{0}1 Печать журнала{1}\n'.format(rgbcolors.Color(255, 0, 0),
+                                                     rgbcolors.End()) +
+                   '{0}2 Печать списка организованных групп{1}\n'.format(rgbcolors.Color(255, 0, 0),
+                                                                         rgbcolors.End()) +
                    '3 Печать статистики по возрастам\n'
                    '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
-                   '5 ! Внести в навигатор свои грязные буквы\n'
+                   '5 ! Внести в навигатор свои{0}грязные{1} буквы\n'.format(rgbcolors.Color(255, 128, 0),
+                                                                         rgbcolors.End()) +
                    '6 Найти проблемные группы\n'
                    '7 Найти дубликаты детей\n'
                    '# Вернуться в главное меню (во всей программе)')
