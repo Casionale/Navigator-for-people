@@ -715,4 +715,6 @@ while True:
         number_6(target_count)
 
     if choose == '7':
+        if input_str == '#':
+            continue
         find_duplicates()
