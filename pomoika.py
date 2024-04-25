@@ -149,7 +149,7 @@ def printChildren():
     f.close()
     return 'Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt"
 
-def stat_of_ages():
+def stat_of_ages(unique = False, confirmed = False, by_program_name = False, negative_groups = []):
     global new_url, r, b, i, group_id_val
     ages = {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0}
     sum_girls = 0
@@ -157,8 +157,21 @@ def stat_of_ages():
     error_sex = 0
     error_child = []
 
+    unique_childs = set()
+    repeated_childs = 0
+    repeteds = 0
+    repeated_childs_id = []
+
     ages_of_sections ={} #секция: [мальчики, девочки]
     for i in range(0, len(groups)):
+
+        if len(negative_groups) > 0:
+            negative_check = [ind for ind in negative_groups if ind in groups[i]['name'].lower()]
+            if len(negative_check) != 0:
+                print('\r Проигнорированна группа '+groups[i]['name'] + '\n')
+                continue
+
+
         g_inp = i
         group_id_val = groups[i]['id']
         event_id = groups[i]['event_id']
@@ -167,13 +180,28 @@ def stat_of_ages():
         pb = progressBar()
         print("\r"+pb.getPB(all=len(groups), progress=i)+' Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'], end=' ')
         list_childrens = get_childrens()
-        section = get_section(event_id)
+        if by_program_name:
+            section = groups[i]['program_name']
+        else:
+            section = get_section(event_id)
 
         if section not in ages_of_sections:
             ages_of_sections[section] = [0],[0],{0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0} #Мальчики, девочки
 
         iterator_childrens = 0
+
+
         for c in list_childrens:
+            if unique:
+                if c['kid_id'] in unique_childs:
+                    repeteds += 1
+                    if c['kid_id'] not in repeated_childs_id:
+                        repeated_childs += 1
+                        repeated_childs_id.append(c['kid_id'])
+                    continue
+                else:
+                    unique_childs.add(c['kid_id'])
+
             ages[c['kid_age']] += 1
             ages_of_sections[section][2][c['kid_age']] += 1
             c_info = get_all_info_child(c['kid_id'])
@@ -194,7 +222,10 @@ def stat_of_ages():
                 'program_name'] + ' ' + groups[g_inp]['name'], end=' ')
             print(pb.getPB(all=len(list_childrens), progress=iterator_childrens), end="")
 
-    f = open("Статистика по возрастам.txt", "w")
+    if not unique:
+        f = open("Статистика по возрастам.txt", "w")
+    else:
+        f = open("Статистика по возрастам УНИКАЛЬНЫЕ.txt", "w")
     for i in range(0, 19):
         if ages[i] == 0:
             continue
@@ -214,6 +245,11 @@ def stat_of_ages():
             else:
                 f.write(str(i) + " лет " + str(value[2][i]) + " человек\n")
 
+    if unique:
+        f.write("\nПовторов всего: " + str(repeteds))
+        f.write("\nПовторов детей: " + str(repeated_childs))
+        f.write('\n'+str(repeated_childs_id))
+
     f.close()
 
 def get_section(event_id):
@@ -228,6 +264,19 @@ def get_section(event_id):
 def get_childrens():
     new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
         group_id_val) + '"},{"property":"academic_year_id","value":"' + str(
+        YEAR) + '"},{"property":"dateStart","value":"' + YEAR + '-12-01 00:00:00"},{"property":"dateEnd","value":"' + YEAR + '-12-31 23:59:59"}]'
+    r = session.get(new_url, headers=headers)
+    b = json.loads(r.text)
+    list_childrens = b['data']
+    new_list_childrens = []
+    for i in range(0, len(list_childrens)):
+        if list_childrens[i]['type_active'] == 1:
+            new_list_childrens.append(list_childrens[i])
+    return new_list_childrens
+
+def get_childrens_by_group_id(group_id):
+    new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
+        group_id) + '"},{"property":"academic_year_id","value":"' + str(
         YEAR) + '"},{"property":"dateStart","value":"' + YEAR + '-12-01 00:00:00"},{"property":"dateEnd","value":"' + YEAR + '-12-31 23:59:59"}]'
     r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
@@ -445,6 +494,17 @@ def getListChildrensFromOrder(group):
     file.write("\n".join(list_names))
     file.close()
 
+def getListChildrensFromOrder(group):
+
+    group_id_val = group['id']
+
+    new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":'+YEAR+',"comparison":"eq"},{"property":"event_id","value":'+ group['event_id'] +',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(group_id_val) + '","comparison":"eq"},{"property":"state","value":["approve"],"comparison":"in"}]'
+
+    r = session.get(new_url, headers=headers)
+    b = json.loads(r.text)
+    list_childrens = b['data']
+    return list_childrens
+
 def getListChildrensFromOrderAnyGroups(groups):
     groups = groups.split(" ")
     for group in groups:
@@ -536,9 +596,150 @@ def find_duplicates():
         str_groups += '\n'
 
         f.write('Групп ' + str(len(duplicated[key])) + ' ' + key + ' ' + str_groups + '\n')
+
+    f.write('\n\n Всего детей: ' + str(len(duplicated)))
     f.close()
 
+def forced_child_adding(in_group = True):
+    #Файл с детьми которых нужно зачислить в группы
+    #Текстовый
+    #ФИО таб часть program_name
 
+    #Файл с детьми которых нужно зачислить в мероприятия
+    #Текстовый
+    #ИД мероприяти таб дата-время
+    #ФИО таб описание
+
+    all_childrens = []
+
+    if in_group:
+        for g in groups:
+            childs = get_childrens_by_group_id(g['id'])
+            all_childrens.extend(childs)
+            also_childs = getListChildrensFromOrder(g)
+            all_childrens.extend(also_childs)
+
+    filename = input('Файл с детьми для добавления')
+    f = open(filename, 'r', encoding='utf-8')
+    rows = f.readlines()
+    f.close()
+
+    activity_id = 0
+    date = ""
+    if not in_group:
+        parts = rows[0].split('\t')
+        activity_id = int(parts[0])
+        date = parts[1]
+        del(rows[0])
+
+    prerared_info = []
+    for r in rows:
+        parts = r.split('\t')
+        if parts[0] != '':
+            prerared_info.append(parts)
+
+    actual_kids_for_adding = []
+    for info in prerared_info:
+        full_name = info[0]
+        try:
+            if info[1] is not None:
+                adding_info = info[1]
+            else:
+                adding_info = ''
+        except IndexError:
+            adding_info = ''
+        print('Поиск {0}'.format(full_name))
+        target_url = f'https://booking.dop29.ru/api/rest/safe/kid?_dc=1714046462894&special=1&page=1&start=0&length=20&extFilters=[{{"property":"fio","value":"{full_name}","comparison":"manual","type":null}}]'
+        r = session.get(url=target_url, headers=headers)
+        b = json.loads(r.text)
+
+        if b['err_code'] != 0 or len(b['data']) == 0:
+            print('Не найдено!')
+            continue
+        os.system('cls')
+        print('Найдены следующие дети:')
+
+        for i in range(len(b['data'])):
+            print(f"{i} {b['data'][i]['fio']} {b['data'][i]['birthday']} {b['data'][i]['approve_org_caption']}")
+
+        if not in_group:
+            print(f'Описание: {adding_info}')
+
+        choose = int(input('Выберите индекс ребёнка для добавления или напишите -1 для пропуска'))
+        if choose == -1:
+            continue
+
+        actual_kids_for_adding.append(b['data'][choose])
+
+        if in_group:
+            print("Веберите идекс группы для зачисления")
+            for i in range(len(groups)):
+                if adding_info.lower().rstrip() in groups[i]['program_name'].lower().rstrip():
+                    print(f"{i} {groups[i]['program_name']} {groups[i]['id']} {groups[i]['name']}")
+
+            if b['data'][choose]['id'] in [kid['kid_id'] for kid in all_childrens]:
+                print('УЖЕ ДОБАВЛЕН В КАКОЙ-ТО ГРУППЕ')
+
+            group_index = int(input('Выбранная группа: '))
+            if group_index != -1:
+                print(f"{groups[group_index]['program_name']} {groups[group_index]['id']} {groups[group_index]['name']}")
+                adding_order(b['data'][choose], groups[group_index])
+            else:
+                print('Пропущен!')
+        else:
+            adding_activity_order(b['data'][choose], activity_id, date)
+        pass
+
+
+def adding_order(child, group):
+    json_string = {"data":
+                {"event_id":group['event_id'],
+                 "state":"initial",
+                 "certificate_number":"нет",
+                 "decree_enrollment_number":"нет",
+                 "decree_deduction_number":"нет",
+                 "program_is_pfdod":False,
+                 "kid_is_approved":False,
+                 "is_online_payments_allowed":False,
+                 "academic_year_id":YEAR,
+                 "certificate_certificate_number":"",
+                 "rpgu_deadline_date":None,
+                 "kid_birthday":None,
+                 "deadline":None,
+                 "created_ts":None,
+                 "date_enroll":None,
+                 "date_deduct":None,
+                 "rpgu_overdue_deadline":False,
+                 "group_id":f"{group['id']}",
+                 "kid_id":f"{child['id']}",
+                 "site_user_id":f"{child['site_user_id']}"
+                 }}
+    new_url = "https://booking.dop29.ru/api/rest/order?_dc=1714059370156"
+    payload = json.loads(json.dumps(json_string))
+    r = session.post(url=new_url, headers=headers, json=payload)
+    b = json.loads(r.text)
+    if b['err_code'] == 0:
+        print('УСПЕХ!')
+    else:
+        b['errors'][0]['msg']
+
+def adding_activity_order(child, activity_id, date, state = 'approve'):
+    json_string = {"data":
+                       {
+                           "activity_id": activity_id,
+                           "date": date,
+                           "site_user_id": f"{child['site_user_id']}",
+                           "kid_id": f"{child['id']}",
+                           "state": state
+                       }}
+    new_url = "https://booking.dop29.ru/api/rest/activityOrder?_dc=1714066258891"
+    payload = json.loads(json.dumps(json_string))
+    r = session.post(url=new_url, headers=headers, json=payload)
+    b = json.loads(r.text)
+    if b['err_code'] == 0:
+        print('УСПЕХ!')
+    else:
+        b['errors'][0]['msg']
 
 FILTER = False
 
@@ -599,6 +800,13 @@ while True:
                                                                          rgbcolors.End()) +
                    '6 Найти проблемные группы\n'
                    '7 Найти дубликаты детей\n'
+                   '{0}8 По возрастам и уникальные{1}\n'.format(rgbcolors.Color(127, 255, 212),
+                                                                         rgbcolors.End()) +
+                   '9 количество детей по программам\n'
+                   '{0}10 принудительная заявка детей в группу{1}\n'.format(rgbcolors.Color(198, 144, 53),
+                                                                         rgbcolors.End()) +
+                   '{0}11 принудительное зачисление детей в мероприятие{1}\n'.format(rgbcolors.Color(198, 144, 53),
+                                                                                rgbcolors.End()) +
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -715,6 +923,24 @@ while True:
         number_6(target_count)
 
     if choose == '7':
-        if input_str == '#':
-            continue
         find_duplicates()
+
+    if choose == '8':
+        stat_of_ages(True)
+
+    if choose == '9':
+        file_exits = os.path.isfile('negative_groups.txt')
+        if file_exits:
+            f = open('negative_groups.txt', 'r', encoding="utf-8")
+            negatve_groups = f.readlines()
+            f.close()
+            stat_of_ages(by_program_name=True, negative_groups=negatve_groups)
+        else:
+            print('Файл с шаблоном negative_groups не найден')
+            stat_of_ages(by_program_name=True)
+
+    if choose == '10':
+        forced_child_adding()
+    if choose == '11':
+        forced_child_adding(False)
+
