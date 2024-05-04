@@ -81,13 +81,19 @@ r = session.post(url, headers={
     'TE': 'trailers',
 }, data='{"email": "' + email + '", "password": "' + password + '"}')
 
-print('Авторизация удалась походу')
+
 
 session.headers.update({'Referer': 'https://booking.dop29.ru/admin/'})
 session.headers.update({'User-Agent': user_agent})
 
 text_buf = r.text
 json_string = json.loads(text_buf)
+
+if json_string['err_code'] == 400:
+    print(json_string['errors'][0]['msg'])
+    exit(1)
+else:
+    print('Авторизация удалась походу')
 
 access_token = json_string['data']['access_token']
 expired_at = json_string['data']['expired_at']
@@ -741,6 +747,65 @@ def adding_activity_order(child, activity_id, date, state = 'approve'):
     else:
         b['errors'][0]['msg']
 
+def to_study_from_approve():
+    global groups
+
+    target_url = f'https://booking.dop29.ru/api/rest/order?_dc=1714828457975&page=1&start=0&length={MAX_GROUPS_COUNT}&extFilters=[{{"property":"fact_academic_year_id","value":{YEAR},"comparison":"eq"}}]'
+    r = session.get(url=target_url, headers=headers)
+    b = json.loads(r.text)
+    approving = [a for a in b['data'] if a['state_grid'] == 'approve']
+    print(f'Найдено {len(approving)} подтверждённых заявок для подтверждения обучения')
+    date_signing = "" #Дата приказа
+    date_start = "" #Начало обучения
+    decree_number = "" #Номер приказа
+    financing_source = "1" #Бюджет 1
+    id = "" #id заявки ребёнка
+
+    print('='*20)
+    date_signing = input('Дата приказа в формате ГГ-ММ-ДД! ')
+    date_start = input('Дата начала обучения в формате ГГ-ММ-ДД!')
+    decree_number = input('Номер приказа ')
+
+    for a in approving:
+        g = next((x for x in groups if x['id'] == a['group_id']),  None)
+
+        print(f"Ребёнок {a['kid_last_name']} {a['kid_first_name']} {g['program_name']} {g['name']}")
+        choose = input('1 - Принять; 0 - пропустить;\n')
+        if choose == '1':
+            id = a['id']
+
+            target_url = f'https://booking.dop29.ru/api/studyRequest'
+            json_string = {"data":
+                {
+                    "comment": "",
+                    "date_signing": date_signing,
+                    "date_start": date_start,
+                    "decree_number": decree_number,
+                    "financing_source": "1",
+                    "id":id
+                }}
+            payload = json.loads(json.dumps(json_string))
+            r = session.post(url=target_url, headers=headers, json=payload)
+            b = json.loads(r.text)
+            if b['err_code'] == 0:
+                print('УСПЕХ!')
+            else:
+                b['errors'][0]['msg']
+
+        else:
+            continue
+
+    pass
+
+
+
+
+
+
+
+
+
+
 FILTER = False
 
 filter_choise = int(input("Режим фильтра 0 - нет, 1 - да: "))
@@ -807,6 +872,7 @@ while True:
                                                                          rgbcolors.End()) +
                    '{0}11 принудительное зачисление детей в мероприятие{1}\n'.format(rgbcolors.Color(198, 144, 53),
                                                                                 rgbcolors.End()) +
+                   '12 Принять на обучение\n'
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -943,4 +1009,7 @@ while True:
         forced_child_adding()
     if choose == '11':
         forced_child_adding(False)
+
+    if choose == '12':
+        to_study_from_approve()
 
