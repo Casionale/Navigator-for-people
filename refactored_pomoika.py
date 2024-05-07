@@ -18,56 +18,23 @@ import numpy
 
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QAction, QTableWidget,QTableWidgetItem,QVBoxLayout,
-                             QMessageBox, QCheckBox)
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QAction, QTableWidget, QTableWidgetItem, QVBoxLayout,
+                             QMessageBox, QCheckBox, QTreeWidget, QTreeWidgetItem)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSlot
 import sys
 
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-class rgbcolors:
-    def Color(r, g, b):
-        return '\033[38;2;{0};{1};{2}m '.format(r,g,b)
-    def End():
-        return '\033[0m'
-
-class progressBar():
-    size = 30
-    filled = '█'
-    unfilled = '-'
-
-    def __init__(self):
-        self.size = 30
-        self.filled = '█'
-        self.unfilled = '-'
-
-    def getPB(self, all, progress):
-        percent = int((progress * 100) / all)
-        filled_count = int((self.size / 100) * percent)
-        fil = str(self.filled*filled_count) + str(self.unfilled * (self.size-filled_count))
-        return "{0}% {1} 100%".format(percent, fil)
-
-
 class NavigatorClient:
 
     def __init__(self):
+        self.groups = None
         url = "https://booking.dop29.ru/api/user/login"
         self.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:95.0) Gecko/20100101 Firefox/95.0"
 
-        dir = os.getcwd()
+        directory = os.getcwd()
 
-        file_login = open(dir + '\\login.ini', 'r')
+        file_login = open(directory + '\\login.ini', 'r')
         str_login = file_login.read().split('\n')
         email = str_login[0]
         password = str_login[1]
@@ -77,7 +44,7 @@ class NavigatorClient:
         r = self.session.post(url, headers={
             'Host': 'booking.dop29.ru',
             'User-Agent': self.user_agent,
-            'Accept': '*\/*',
+            'Accept': '*\\/*',
             'Accept-Language': 'ru-RU,ru;q=0.8,en-US;q=0.5,en;q=0.3',
             'Accept-Encoding': 'gzip, deflate, br',
             'Content-Type': 'application/json',
@@ -124,11 +91,13 @@ class NavigatorClient:
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
             'TE': 'trailers'
-            }
-        self.getGroups()
+        }
+        self.get_groups()
 
-    def getGroups(self):
-        new_url = 'https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length=' + str(
+    def get_groups(self):
+        new_url = ('https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25'
+                   '&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},'
+                   '{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length=') + str(
             self.MAX_GROUPS_COUNT)
         r = self.session.get(new_url, headers=self.headers)
 
@@ -138,8 +107,11 @@ class NavigatorClient:
         if int(b['recordsFiltered']) > len(self.groups):
             print("Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered'])))
 
-            new_url = 'https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length=' + str(
-                self.MAX_GROUPS_COUNT) + '&page=2&start=' + str(len(self.groups))
+            new_url = (('https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25'
+                        '&extFilters=[{"property":"is_deleted","value":"0","comparison":"eq"},'
+                        '{"property":"event.is_deleted","value":"N","comparison":"eq"}]&format=attendance&length=') +
+                       str(
+                           self.MAX_GROUPS_COUNT) + '&page=2&start=' + str(len(self.groups)))
             r = self.session.get(new_url, headers=self.headers)
 
             b = json.loads(r.text)
@@ -147,42 +119,41 @@ class NavigatorClient:
 
             print("Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered'])))
 
-        return("Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered'])))
+        return "Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered']))
 
-    def print_childern_from_many_groups(self, list_group_id):
-        list_childrens = []
-        for id in list_group_id:
-            list_childrens.extend(self.printChildren(id))
-        return list_childrens
-    def printChildren(self, group_id):
-        list_childrens = self.get_childrens(group_id)
+    def print_children_from_many_groups(self, list_group_id):
+        list_children = []
+        for group_id in list_group_id:
+            list_children.extend(self.print_children(group_id))
+        return list_children
+
+    def print_children(self, group_id):
+        list_children = self.get_children(group_id)
 
         returned_list = []
 
-        for c in list_childrens:
-            data = {}
-            data['fio'] = c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name']
-            data['birthday'] = c['kid_birthday']
-            data['age'] = c['kid_age']
-
-            #returned_list.append(data)
+        for c in list_children:
             returned_list.append([c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'],
-                                 c['kid_birthday'], c['kid_age']])
+                                  c['kid_birthday'], c['kid_age']])
 
         return returned_list
 
-    def get_childrens(self, group_id):
-        new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
+    def get_children(self, group_id):
+        new_url = (('https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25'
+                    '&extFilters=[{"property":"group_id","value":"') + str(
             group_id) + '"},{"property":"academic_year_id","value":"' + str(
-            self.YEAR) + '"},{"property":"dateStart","value":"' + self.YEAR + '-12-01 00:00:00"},{"property":"dateEnd","value":"' + self.YEAR + '-12-31 23:59:59"}]'
+            self.YEAR) + '"},{"property":"dateStart","value":"' + self.YEAR + ('-12-01 00:00:00"},'
+                                                                               '{"property":"dateEnd","value":"') +
+                   self.YEAR + '-12-31 23:59:59"}]')
         r = self.session.get(new_url, headers=self.headers)
         b = json.loads(r.text)
-        list_childrens = b['data']
-        new_list_childrens = []
-        for i in range(0, len(list_childrens)):
-            if list_childrens[i]['type_active'] == 1:
-                new_list_childrens.append(list_childrens[i])
-        return new_list_childrens
+        list_children = b['data']
+        new_list_children = []
+        for i in range(0, len(list_children)):
+            if list_children[i]['type_active'] == 1:
+                new_list_children.append(list_children[i])
+        return new_list_children
+
 
 class TableModel(QtCore.QAbstractTableModel):
     def __init__(self, data, columns):
@@ -216,34 +187,45 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.statesCheckboxes = None
+        self.list_checkbox = None
         uic.loadUi("pomoikadesign.ui", self)
         self.pushButton_2.clicked.connect(lambda: self.child_info())
         self.nc = NavigatorClient()
-        self.fill_checkboxes()
+        #self.fill_checkboxes()
+        self.fill_tree_checkboxes()
 
         filemenu = self.menubar.addMenu('Дебаг')
-        filemenu.addAction('Точка останова!', self.actionClicked)
+        filemenu.addAction('Точка останова!', self.action_clicked)
         self.menuBar()
 
     @QtCore.pyqtSlot()
-    def actionClicked(self):
+    def action_clicked(self):
         action = self.sender()
         st = self.statesCheckboxes
         print('Action: ', action.text())
 
     def child_info(self):
-        list_childrens = []
 
         if len(self.statesCheckboxes) == 1:
-            g_index = self.statesCheckboxes[0]
-            list_childrens = self.nc.printChildren(g_index)
+            group_id = self.statesCheckboxes[0]
+            self.nc.print_children(group_id)
         if len(self.statesCheckboxes) == 0:
             QMessageBox.about(self, "Ой", "Вы не выбрали группу")
             return
         else:
-            list_childrens = self.nc.print_childern_from_many_groups(self.statesCheckboxes)
+            list_children = self.nc.print_children_from_many_groups(self.statesCheckboxes)
 
-        self.set_model_in_tableView(list_childrens)
+        self.set_model_in_table_view(list_children)
+        if len(self.statesCheckboxes) == 1:
+            group_name = [g['program_name'] + " " + g['name'] for g in self.nc.groups if g['id'] == group_id][0]
+        else:
+            group_names = []
+            group_names.extend(
+                [g['program_name'] + " " + g['name'] for g in self.nc.groups if g['id'] in self.statesCheckboxes])
+            group_name = ' '.join(group_names)
+            self.label_over_table.setToolTip('\n'.join(group_names))
+        self.label_over_table.setText(group_name)
 
     def fill_checkboxes(self):
         groups = self.nc.groups
@@ -257,7 +239,7 @@ class MainWindow(QtWidgets.QMainWindow):
             self.list_checkbox.append(f"{g['program_name']} {g['name']}")
             c_b = QCheckBox(f"{g['program_name']} {g['name']}")
             c_b.group_id = g['id']
-            c_b.stateChanged.connect(self.onStateChanged)
+            c_b.stateChanged.connect(self.on_state_changed)
             vbox.addWidget(c_b)
 
         widget.setLayout(vbox)
@@ -266,30 +248,65 @@ class MainWindow(QtWidgets.QMainWindow):
         self.scrollArea.setWidgetResizable(True)
         self.scrollArea.setWidget(widget)
 
-    def onStateChanged(self):
+    def fill_tree_checkboxes(self):
+        values = set(map(lambda x: x['teacher'], self.nc.groups))
+        groups_groupby_teacher = {x : [y for y in self.nc.groups if y['teacher'] == x] for x in values}
+        tree = QTreeWidget()
+        for key in groups_groupby_teacher.keys():
+            parent = QTreeWidgetItem(tree)
+            parent.setText(0, "Педагог {}".format(key))
+            for x in groups_groupby_teacher[key]:
+                child = QTreeWidgetItem(parent)
+                child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
+                child.setText(0, "{}".format(f"{x['program_name']} {x['name']}"))
+                child.setCheckState(0, Qt.Unchecked)
+                child.group_id = x['id']
+        tree.itemClicked.connect(self.onItemClicked)
+
+
+        tree.show()
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setWidget(tree)
+
+    def on_state_changed(self):
         sender = self.sender()
         if sender.isChecked():
             self.statesCheckboxes.append(sender.group_id)
         else:
             self.statesCheckboxes.remove(sender.group_id)
 
-    def set_model_in_tableView(self, model):
+    @QtCore.pyqtSlot(QtWidgets.QTreeWidgetItem, int)
+    def onItemClicked(self, it, column):
+
+        try:
+            if it.checkState(column) == Qt.Checked:
+                if self.statesCheckboxes is None:
+                    self.statesCheckboxes = [it.group_id]
+                    return
+                if it.group_id not in self.statesCheckboxes:
+                    self.statesCheckboxes.append(it.group_id)
+            else:
+                if self.statesCheckboxes is not None or len(self.statesCheckboxes):
+                    if it.group_id in self.statesCheckboxes:
+                        self.statesCheckboxes.remove(it.group_id)
+        except AttributeError:
+            return
+        except TypeError:
+            return
+
+    def set_model_in_table_view(self, model):
 
         if len(model) == 0:
             QMessageBox.about(self, "Ой", "Группа пуста.")
             return
-        model = TableModel(model, columns = ['ФИО', 'Дата рождения', 'Возраст'])
+        model = TableModel(model, columns=['ФИО', 'Дата рождения', 'Возраст'])
         self.tableView.setModel(model)
-        pass
-
-
 
 
 app = QtWidgets.QApplication(sys.argv)
 window = MainWindow()
 window.show()
-
-
-
 
 app.exec()
