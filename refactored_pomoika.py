@@ -18,7 +18,8 @@ import numpy
 
 from PyQt5 import QtWidgets, uic, QtCore
 from PyQt5.QtCore import Qt
-from PyQt5.QtWidgets import QMainWindow, QApplication, QWidget, QAction, QTableWidget,QTableWidgetItem,QVBoxLayout
+from PyQt5.QtWidgets import (QMainWindow, QApplication, QWidget, QAction, QTableWidget,QTableWidgetItem,QVBoxLayout,
+                             QMessageBox, QCheckBox)
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSlot
 import sys
@@ -148,9 +149,13 @@ class NavigatorClient:
 
         return("Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered'])))
 
-    def printChildren(self, group_index):
-        print('Выбрана группа ' + self.groups[group_index]['program_name'] + ' ' + self.groups[group_index]['name'])
-        list_childrens = self.get_childrens(group_index)
+    def print_childern_from_many_groups(self, list_group_id):
+        list_childrens = []
+        for id in list_group_id:
+            list_childrens.extend(self.printChildren(id))
+        return list_childrens
+    def printChildren(self, group_id):
+        list_childrens = self.get_childrens(group_id)
 
         returned_list = []
 
@@ -166,9 +171,9 @@ class NavigatorClient:
 
         return returned_list
 
-    def get_childrens(self, group_index):
+    def get_childrens(self, group_id):
         new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
-            group_index) + '"},{"property":"academic_year_id","value":"' + str(
+            group_id) + '"},{"property":"academic_year_id","value":"' + str(
             self.YEAR) + '"},{"property":"dateStart","value":"' + self.YEAR + '-12-01 00:00:00"},{"property":"dateEnd","value":"' + self.YEAR + '-12-31 23:59:59"}]'
         r = self.session.get(new_url, headers=self.headers)
         b = json.loads(r.text)
@@ -180,9 +185,15 @@ class NavigatorClient:
         return new_list_childrens
 
 class TableModel(QtCore.QAbstractTableModel):
-    def __init__(self, data):
+    def __init__(self, data, columns):
         super(TableModel, self).__init__()
         self._data = data
+        self._columns = columns
+
+    def headerData(self, section, orientation, role=QtCore.Qt.DisplayRole):
+        if orientation == QtCore.Qt.Horizontal and role == QtCore.Qt.DisplayRole:
+            return self._columns[section]
+        return super().headerData(section, orientation, role)
 
     def data(self, index, role):
         if role == Qt.DisplayRole:
@@ -208,17 +219,67 @@ class MainWindow(QtWidgets.QMainWindow):
         uic.loadUi("pomoikadesign.ui", self)
         self.pushButton_2.clicked.connect(lambda: self.child_info())
         self.nc = NavigatorClient()
+        self.fill_checkboxes()
+
+        filemenu = self.menubar.addMenu('Дебаг')
+        filemenu.addAction('Точка останова!', self.actionClicked)
+        self.menuBar()
+
+    @QtCore.pyqtSlot()
+    def actionClicked(self):
+        action = self.sender()
+        st = self.statesCheckboxes
+        print('Action: ', action.text())
 
     def child_info(self):
-        list_childrens = self.nc.printChildren(100)
+        list_childrens = []
+
+        if len(self.statesCheckboxes) == 1:
+            g_index = self.statesCheckboxes[0]
+            list_childrens = self.nc.printChildren(g_index)
+        if len(self.statesCheckboxes) == 0:
+            QMessageBox.about(self, "Ой", "Вы не выбрали группу")
+            return
+        else:
+            list_childrens = self.nc.print_childern_from_many_groups(self.statesCheckboxes)
+
         self.set_model_in_tableView(list_childrens)
+
+    def fill_checkboxes(self):
+        groups = self.nc.groups
+        self.list_checkbox = []
+        self.statesCheckboxes = []
+
+        widget = QWidget()
+        vbox = QVBoxLayout()
+
+        for g in groups:
+            self.list_checkbox.append(f"{g['program_name']} {g['name']}")
+            c_b = QCheckBox(f"{g['program_name']} {g['name']}")
+            c_b.group_id = g['id']
+            c_b.stateChanged.connect(self.onStateChanged)
+            vbox.addWidget(c_b)
+
+        widget.setLayout(vbox)
+        self.scrollArea.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOn)
+        self.scrollArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.scrollArea.setWidgetResizable(True)
+        self.scrollArea.setWidget(widget)
+
+    def onStateChanged(self):
+        sender = self.sender()
+        if sender.isChecked():
+            self.statesCheckboxes.append(sender.group_id)
+        else:
+            self.statesCheckboxes.remove(sender.group_id)
 
     def set_model_in_tableView(self, model):
 
-        model = TableModel(model)
+        if len(model) == 0:
+            QMessageBox.about(self, "Ой", "Группа пуста.")
+            return
+        model = TableModel(model, columns = ['ФИО', 'Дата рождения', 'Возраст'])
         self.tableView.setModel(model)
-
-
         pass
 
 

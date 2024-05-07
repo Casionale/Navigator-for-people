@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1015</width>
+    <width>1114</width>
     <height>600</height>
    </rect>
   </property>
@@ -19,7 +19,7 @@
      <rect>
       <x>20</x>
       <y>10</y>
-      <width>331</width>
+      <width>301</width>
       <height>531</height>
      </rect>
     </property>
@@ -31,7 +31,7 @@
       <rect>
        <x>9</x>
        <y>19</y>
-       <width>310</width>
+       <width>281</width>
        <height>501</height>
       </rect>
      </property>
@@ -63,6 +63,9 @@
          <bool>false</bool>
         </property>
         <property name="default">
+         <bool>false</bool>
+        </property>
+        <property name="flat">
          <bool>false</bool>
         </property>
        </widget>
@@ -211,11 +214,60 @@
    <widget class="QTableView" name="tableView">
     <property name="geometry">
      <rect>
-      <x>370</x>
-      <y>20</y>
-      <width>481</width>
-      <height>521</height>
+      <x>680</x>
+      <y>10</y>
+      <width>421</width>
+      <height>511</height>
      </rect>
+    </property>
+   </widget>
+   <widget class="QGroupBox" name="groupBox_2">
+    <property name="geometry">
+     <rect>
+      <x>330</x>
+      <y>10</y>
+      <width>341</width>
+      <height>531</height>
+     </rect>
+    </property>
+    <property name="title">
+     <string>Группы</string>
+    </property>
+    <widget class="QScrollArea" name="scrollArea">
+     <property name="geometry">
+      <rect>
+       <x>0</x>
+       <y>20</y>
+       <width>341</width>
+       <height>501</height>
+      </rect>
+     </property>
+     <property name="widgetResizable">
+      <bool>true</bool>
+     </property>
+     <widget class="QWidget" name="scrollAreaWidgetContents">
+      <property name="geometry">
+       <rect>
+        <x>0</x>
+        <y>0</y>
+        <width>339</width>
+        <height>499</height>
+       </rect>
+      </property>
+     </widget>
+    </widget>
+   </widget>
+   <widget class="QPushButton" name="pushButton_11">
+    <property name="geometry">
+     <rect>
+      <x>680</x>
+      <y>530</y>
+      <width>121</width>
+      <height>23</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>Сохранить в файл</string>
     </property>
    </widget>
   </widget>
@@ -224,8 +276,8 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1015</width>
-     <height>26</height>
+     <width>1114</width>
+     <height>21</height>
     </rect>
    </property>
    <widget class="QMenu" name="menu">
@@ -236,6 +288,11 @@
    <addaction name="menu"/>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>
+  <action name="action">
+   <property name="text">
+    <string>Точка останова</string>
+   </property>
+  </action>
  </widget>
  <resources/>
  <connections/>
