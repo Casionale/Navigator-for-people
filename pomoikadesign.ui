@@ -279,6 +279,12 @@
       <height>16</height>
      </rect>
     </property>
+    <property name="layoutDirection">
+     <enum>Qt::LeftToRight</enum>
+    </property>
+    <property name="autoFillBackground">
+     <bool>false</bool>
+    </property>
     <property name="frameShape">
      <enum>QFrame::NoFrame</enum>
     </property>
