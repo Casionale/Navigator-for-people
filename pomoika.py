@@ -1013,3 +1013,7 @@ while True:
     if choose == '12':
         to_study_from_approve()
 
+
+
+
+
