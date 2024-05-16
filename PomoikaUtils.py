@@ -101,6 +101,7 @@ class NavigatorClient:
         list_children = []
         for group_id in list_group_id:
             list_children.extend(self.print_children(group_id))
+        self.list_children = list_children
         return list_children
 
     def print_children(self, group_id):
@@ -128,10 +129,10 @@ class NavigatorClient:
         for i in range(0, len(list_children)):
             if list_children[i]['type_active'] == 1:
                 new_list_children.append(list_children[i])
-        self.list_children = new_list_children
+
         return new_list_children
 
-    def stat_of_ages(self, progress_signal, filename,  unique=False, by_program_name=False, negative_groups=[]):
+    def stat_of_ages(self, progress_signal, progress_signal2, filename,  unique=False, by_program_name=False, negative_groups=[]):
         ages = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0,
                 17: 0, 18: 0, 19: 0, 20: 0, 21: 0}
         sum_girls = 0
@@ -146,6 +147,9 @@ class NavigatorClient:
 
         ages_of_sections = {}  # секция: [мальчики, девочки]
         for i in range(0, len(self.groups)):
+
+            progress_signal2.emit(i, len(self.groups) - 1, self.groups[i][
+                'program_name'] + ' ' + self.groups[i]['name'])
 
             if len(negative_groups) > 0:
                 negative_check = [ind for ind in negative_groups if ind in self.groups[i]['name'].lower()]
@@ -229,6 +233,8 @@ class NavigatorClient:
 
         f.close()
 
+        progress_signal2.emit(1, 1, 'ГОТОВО!')
+
     def get_section(self, event_id):
         new_url = 'https://booking.dop29.ru/api/rest/events/{0}?_dc=1705994318220'.format(event_id)
         r = self.session.get(new_url, headers=self.headers)
@@ -247,4 +253,25 @@ class NavigatorClient:
             return child
         except:
             return []
+
+    def getListChildrensFromOrder(self, id_group):
+
+        g = [g for g in self.groups if g['id'] == id_group][0]
+        event_id = g['event_id']
+
+        new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":' + self.YEAR + ',"comparison":"eq"},{"property":"event_id","value":' + \
+                  event_id + ',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(
+            id_group) + '","comparison":"eq"},{"property":"state","value":["approve"],"comparison":"in"}]'
+
+        r = self.session.get(new_url, headers=self.headers)
+        b = json.loads(r.text)
+        list_childrens = b['data']
+        list_names = []
+        for i in range(len(list_childrens)):
+            url_child = 'https://booking.dop29.ru/api/rest/kid/' + list_childrens[i]['kid_id']
+            r = self.session.get(url_child, headers=self.headers)
+            child = json.loads(r.text)['data'][0]
+            list_names.append(child['last_name'] + " " + child['first_name'] + " " + child['patro_name'])
+
+        return g['program_name'] + ' ' + g['name'], list_names
 

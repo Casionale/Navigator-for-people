@@ -31,6 +31,8 @@ from PomoikaUtils import NavigatorClient
 
 class WorkerThread(QThread):
     progress = pyqtSignal(int, int)
+    progress2 = pyqtSignal(int, int, str)
+    ret = pyqtSignal(object)
 
     def __init__(self, func, *args, **kwargs):
         super().__init__()
@@ -39,7 +41,25 @@ class WorkerThread(QThread):
         self.kwargs = kwargs
 
     def run(self):
-        self.func(self.progress, *self.args, **self.kwargs)
+        self.func(self.progress, self.progress2, *self.args, **self.kwargs)
+
+    def run_return(self):
+        self.func(self.ret, *self.args, **self.kwargs)
+
+
+class WorkerRetThread(QThread):
+    progress = pyqtSignal(int, int)
+    progress2 = pyqtSignal(int, int, str)
+    ret = pyqtSignal(object)
+
+    def __init__(self, func, *args, **kwargs):
+        super().__init__()
+        self.func = func
+        self.args = args
+        self.kwargs = kwargs
+
+    def run(self):
+        self.func(self.ret, self.progress, self.progress2, *self.args, **self.kwargs)
 
 
 class TableModel(QtCore.QAbstractTableModel):
@@ -74,10 +94,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.table_model = None
         self.statesCheckboxes = None
         self.list_checkbox = None
         uic.loadUi("pomoikadesign.ui", self)
         self.pushButton_2.clicked.connect(lambda: self.child_info())
+        self.pushButton_3.clicked.connect(lambda: self.worker_for_child_from_order())
         self.pushButton.clicked.connect(lambda: self.print_stat_of_ages())
         self.btnPrintChildren.clicked.connect(lambda: self.print_children())
         self.nc = NavigatorClient()
@@ -192,7 +214,9 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(model) == 0:
             QMessageBox.about(self, "Ой", "Группа пуста.")
             return
+        self.table_model = model
         model = TableModel(model, columns=['ФИО', 'Дата рождения', 'Возраст'])
+
         self.tableView.setModel(model)
 
     def save_file_dialog(self, title, filter):
@@ -207,9 +231,8 @@ class MainWindow(QtWidgets.QMainWindow):
                                                   "Text Files (*.txt)")
         try:
             f = open(fileName + '.txt', 'w', encoding='utf-8')
-            for c in self.nc.list_children:
-                f.write(c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'] + "\t" +
-                        c['kid_birthday'] + "\t" + str(c['kid_age']) + "\n")
+            for row in self.table_model:
+                f.write(f"{row[0]}\t{row[1]}\t{str(row[2])}\n")
             f.close()
 
         except Exception as e:
@@ -225,6 +248,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.thread = WorkerThread(self.nc.stat_of_ages, fileName)
         self.thread.finished.connect(self.on_finished)
         self.thread.progress.connect(self.update_progress)
+        self.thread.progress2.connect(self.update_progress2)
         self.thread.start()
 
     def update_progress(self, value, maximum):
@@ -232,9 +256,68 @@ class MainWindow(QtWidgets.QMainWindow):
         self.progressBar.setValue(value)
         print(value, maximum)
 
+    def update_progress2(self, value, maximum, string):
+        self.progressBar_2.setMaximum(maximum)
+        self.progressBar_2.setValue(value)
+        self.progressBar_2.setFormat(string)
+        self.progressBar_2.setAlignment(Qt.AlignCenter)
+        print(value, maximum)
+
 
     def on_finished(self):
         print('Process finished!')
+
+    def worker_for_child_from_order(self):
+        self.thread = WorkerRetThread(self.child_from_order, self.statesCheckboxes)
+        self.thread.ret.connect(self.child_from_order_finally)
+        self.thread.progress.connect(self.update_progress)
+        self.thread.progress2.connect(self.update_progress2)
+        self.thread.start()
+
+
+    def child_from_order(self, ret_signal, progress_signal, progress_signal2, statesCheckboxes):
+        if statesCheckboxes is not None:
+            if len(statesCheckboxes) == 1:
+                group_id = statesCheckboxes[0]
+
+                _, list_children = self.nc.getListChildrensFromOrder(group_id)
+
+                progress_signal2.emit(1, 1, _)
+
+            if len(statesCheckboxes) == 0:
+                progress_signal2.emit(0, 1, "Вы не выбрали группу")
+                return
+            else:
+                list_children = []
+                iterator = 0
+                for group_id in statesCheckboxes:
+
+                    _, l_children = self.nc.getListChildrensFromOrder(group_id)
+
+                    list_children.extend(l_children)
+                    progress_signal2.emit(iterator, len(statesCheckboxes), _)
+                    iterator += iterator
+
+            ret_signal.emit(list_children)
+        else:
+            progress_signal2.emit(0, 1, "Вы не выбрали группу")
+            return
+
+
+    def child_from_order_finally(self, list_children):
+        self.set_model_in_table_view(list_children)
+        if len(self.statesCheckboxes) == 1:
+            group_id = self.statesCheckboxes[0]
+            group_name = [g['program_name'] + " " + g['name'] for g in self.nc.groups if g['id'] == group_id][0]
+        else:
+            group_names = []
+            group_names.extend(
+                [g['program_name'] + " " + g['name'] for g in self.nc.groups if g['id'] in self.statesCheckboxes])
+            group_name = ' '.join(group_names)
+            self.label_over_table.setToolTip('\n'.join(group_names))
+        self.label_over_table.setText(group_name)
+
+
 
 app = QtWidgets.QApplication(sys.argv)
 window = MainWindow()
