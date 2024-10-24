@@ -774,6 +774,8 @@ def to_study_from_approve():
 
     for a in approving:
         g = next((x for x in groups if x['id'] == a['group_id']),  None)
+        if g is None:
+            continue
 
         print(f"Ребёнок {a['kid_last_name']} {a['kid_first_name']} {g['program_name']} {g['name']}")
         choose = input('1 - Принять; 0 - пропустить;\n')
