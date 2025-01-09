@@ -154,16 +154,18 @@ def printChildren():
     print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
     year = YEAR
     list_childrens = get_childrens()
-    f = open('Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt", 'w')
+    f = open('Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt", 'w', encoding="utf-8")
     for c in list_childrens:
-        f.write(c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'] + '\t' +
-                str(c['kid_birthday']).replace('-', '.') + '\t' + str(c['kid_age']) + '\n')
+        line = (f'{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}\t'
+                f'{c['kid_birthday'].replace('-', '.')}\t{c['kid_age']}\n')
+        f.write(line)
     f.close()
     return 'Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt"
 
 def stat_of_ages(unique = False, confirmed = False, by_program_name = False, negative_groups = []):
     global new_url, r, b, i, group_id_val
     ages = {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0}
+    stupid_girls_by_ages = {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0}
     sum_girls = 0
     sum_childs = 0
     error_sex = 0
@@ -223,6 +225,7 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
                 if c_info['sex'] == 'W':
                     sum_girls += 1
                     ages_of_sections[section][1][0] += 1
+                    stupid_girls_by_ages[c['kid_age']]+=1
                 else:
                     ages_of_sections[section][0][0] += 1
             except:
@@ -242,7 +245,7 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
         if ages[i] == 0:
             continue
         else:
-            f.write(str(i) + " лет " + str(ages[i]) + " человек\n")
+            f.write(str(i) + " лет " + str(ages[i]) + f" человек; {stupid_girls_by_ages[i]} из них девочек \n")
 
     f.write("Всего: {0}, из них девочек: {1}".format(sum_childs, sum_girls))
     f.write("\nНе удалось получить информацию у {0} человек:".format(error_sex))
@@ -1102,6 +1105,8 @@ if filter_choise == 1:
         if b['err_code'] != 0 or len(b['data']) == 0:
             print('Не найдено!')
         return b
+
+
 
 while True:
     os.system("")
