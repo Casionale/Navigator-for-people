@@ -69,6 +69,23 @@ class NavigatorClient:
             'TE': 'trailers'
         }
         self.get_groups()
+        self.filter()
+
+    def filter(self):
+        f = open("groups.ini")
+        id_filters = f.read().splitlines()
+        f.close()
+
+        filtred_groups = []
+
+        for g in self.groups:
+            pass
+            if g['id'] in id_filters:
+                filtred_groups.append(g)
+        self.groups = filtred_groups
+        return 0
+
+
 
     def get_groups(self):
         new_url = ('https://booking.dop29.ru/api/rest/eventGroups?_dc=1641896017213&page=1&start=0&length=25'
@@ -97,23 +114,38 @@ class NavigatorClient:
 
         return "Загружено {0} из {1}".format(len(self.groups), int(b['recordsFiltered']))
 
-    def print_children_from_many_groups(self, list_group_id):
+    def print_children_from_many_groups(self, list_group_id, mul=False):
         list_children = []
         for group_id in list_group_id:
-            list_children.extend(self.print_children(group_id))
+            list_children.extend(self.print_children(group_id, mul=mul))
         self.list_children = list_children
         return list_children
 
-    def print_children(self, group_id):
+    def print_children(self, group_id, mul):
         list_children = self.get_children(group_id)
 
         returned_list = []
 
         for c in list_children:
-            returned_list.append([c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'],
-                                  c['kid_birthday'], c['kid_age']])
+            if mul:
+                info = self.get_all_info_child(c['kid_id'])
+                returned_list.append([c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'],
+                                      c['kid_birthday'], c['kid_age'], info['municipality_name']])
+            else:
+                returned_list.append([c['kid_last_name'] + " " + c['kid_first_name'] + " " + c['kid_patro_name'],
+                                      c['kid_birthday'], c['kid_age']])
 
         return returned_list
+
+    def get_all_info_child(id):
+        new_url = "https://booking.dop29.ru/api/rest/kid/{0}?_dc=1704971612231".format(id)
+        r = session.get(new_url, headers=headers)
+        b = json.loads(r.text)
+        try:
+            child = b['data'][0]
+            return child
+        except:
+            return []
 
     def get_children(self, group_id):
         new_url = (('https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25'
@@ -132,7 +164,8 @@ class NavigatorClient:
 
         return new_list_children
 
-    def stat_of_ages(self, progress_signal, progress_signal2, filename,  unique=False, by_program_name=False, negative_groups=[]):
+    def stat_of_ages(self, progress_signal, progress_signal2, filename,  unique=False, by_program_name=False,
+                     negative_groups=[], witch_order=False, witch_initial=False):
         ages = {0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0, 6: 0, 7: 0, 8: 0, 9: 0, 10: 0, 11: 0, 12: 0, 13: 0, 14: 0, 15: 0, 16: 0,
                 17: 0, 18: 0, 19: 0, 20: 0, 21: 0}
         sum_girls = 0
@@ -160,6 +193,15 @@ class NavigatorClient:
             event_id = self.groups[i]['event_id']
 
             list_childrens = self.get_children(self.groups[i]['id'])
+
+            childrens = []
+
+            if witch_order:
+                childrens.extend(self.literally_get_childrens_from_order(self.groups[i]['id']))
+            if witch_initial:
+                childrens.extend(self.literally_get_childrens_from_order(self.groups[i]['id'], state='initial'))
+                list_childrens.extend(childrens)
+
             if by_program_name:
                 section = self.groups[i]['program_name']
             else:
@@ -271,7 +313,18 @@ class NavigatorClient:
             url_child = 'https://booking.dop29.ru/api/rest/kid/' + list_childrens[i]['kid_id']
             r = self.session.get(url_child, headers=self.headers)
             child = json.loads(r.text)['data'][0]
-            list_names.append(child['last_name'] + " " + child['first_name'] + " " + child['patro_name'])
-
+            list_names.append([child['fio'], child['birthday'], child['age'], child['municipality_name']])
         return g['program_name'] + ' ' + g['name'], list_names
+
+    def literally_get_childrens_from_order(self,  id_group, state='approve'):
+        g = [g for g in self.groups if g['id'] == id_group][0]
+        event_id = g['event_id']
+
+        new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":' + self.YEAR + ',"comparison":"eq"},{"property":"event_id","value":' + \
+                  event_id + ',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(
+            id_group) + '","comparison":"eq"},{"property":"state","value":["'+state+'"],"comparison":"in"}]'
+
+        r = self.session.get(new_url, headers=self.headers)
+        b = json.loads(r.text)
+        return b['data']
 

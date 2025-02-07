@@ -118,14 +118,15 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def child_info(self):
         if self.statesCheckboxes is not None:
+            mul = self.cbMul.isChecked()
             if len(self.statesCheckboxes) == 1:
                 group_id = self.statesCheckboxes[0]
-                self.nc.print_children(group_id)
+                self.nc.print_children(group_id, mul=mul)
             if len(self.statesCheckboxes) == 0:
                 QMessageBox.about(self, "Ой", "Вы не выбрали группу")
                 return
             else:
-                list_children = self.nc.print_children_from_many_groups(self.statesCheckboxes)
+                list_children = self.nc.print_children_from_many_groups(self.statesCheckboxes, mul=mul)
 
             self.set_model_in_table_view(list_children)
             if len(self.statesCheckboxes) == 1:
@@ -169,6 +170,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for key in groups_groupby_teacher.keys():
             parent = QTreeWidgetItem(tree)
             parent.setText(0, "Педагог {}".format(key))
+            # parent.setFlags(parent.flags() | Qt.ItemIsTristate | Qt.ItemIsUserCheckable)
             for x in groups_groupby_teacher[key]:
                 child = QTreeWidgetItem(parent)
                 child.setFlags(child.flags() | Qt.ItemIsUserCheckable)
@@ -210,13 +212,23 @@ class MainWindow(QtWidgets.QMainWindow):
             return
 
     def set_model_in_table_view(self, model):
-
         if len(model) == 0:
             QMessageBox.about(self, "Ой", "Группа пуста.")
             return
         self.table_model = model
-        model = TableModel(model, columns=['ФИО', 'Дата рождения', 'Возраст'])
+        mul = self.cbMul.isChecked()
+        if mul:
+            model = TableModel(model, columns=['ФИО', 'Дата рождения', 'Возраст', 'Муниципалитет'])
+        else:
+            model = TableModel(model, columns=['ФИО', 'Дата рождения', 'Возраст'])
+        self.tableView.setModel(model)
 
+    def set_model_in_table_view_advanced(self, model, columns):
+        if len(model) == 0:
+            QMessageBox.about(self, "Ой", "Группа пуста.")
+            return
+        self.table_model = model
+        model = TableModel(model, columns=columns)
         self.tableView.setModel(model)
 
     def save_file_dialog(self, title, filter):
@@ -242,10 +254,17 @@ class MainWindow(QtWidgets.QMainWindow):
     def print_stat_of_ages(self):
         fileName, _ = self.save_file_dialog("Статистика по возрастам",
                                             "Text Files (*.txt)")
-        fileName = fileName + '.txt'
-        #self.nc.stat_of_ages(fileName)
+        if fileName == '':
+            return
+        if '.' in fileName:
+            pass
+        else:
+            fileName = fileName + '.txt'
 
-        self.thread = WorkerThread(self.nc.stat_of_ages, fileName)
+        order = self.checkBox_2.isChecked()
+        initial = self.checkBox.isChecked()
+
+        self.thread = WorkerThread(self.nc.stat_of_ages, fileName, witch_order=order, witch_initial=initial)
         self.thread.finished.connect(self.on_finished)
         self.thread.progress.connect(self.update_progress)
         self.thread.progress2.connect(self.update_progress2)
@@ -305,7 +324,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
     def child_from_order_finally(self, list_children):
-        self.set_model_in_table_view(list_children)
+        self.set_model_in_table_view_advanced(list_children, ['ФИО', 'Дата рождения', 'Возраст', 'Муниципалитет'])
         if len(self.statesCheckboxes) == 1:
             group_id = self.statesCheckboxes[0]
             group_name = [g['program_name'] + " " + g['name'] for g in self.nc.groups if g['id'] == group_id][0]
