@@ -12,6 +12,7 @@ from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches
 from docx.shared import Pt
+from pathlib import Path
 
 
 class bcolors:
@@ -59,7 +60,10 @@ str_login = file_login.read().split('\n')
 email = str_login[0]
 password = str_login[1]
 YEAR = str_login[2]
+OUTPUT_DIR = Path(dir) / 'output'
 
+if not OUTPUT_DIR.exists():
+    os.makedirs(OUTPUT_DIR)
 
 session = requests.Session()
 r = session.post(url, headers={
@@ -148,7 +152,7 @@ def printChildren():
     print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
     year = YEAR
     list_childrens = get_childrens()
-    f = open('Список группы ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + ".txt", 'w', encoding="utf-8")
+    f = open(Path(OUTPUT_DIR) / f"Список группы {groups[g_inp]['program_name']} {groups[g_inp]['name']}.txt", 'w', encoding="utf-8")
     for c in list_childrens:
         line = (f'{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}\t'
                 f'{c['kid_birthday'].replace('-', '.')}\t{c['kid_age']}\n')
@@ -232,9 +236,9 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
             print(pb.getPB(all=len(list_childrens), progress=iterator_childrens), end="")
 
     if not unique:
-        f = open("Статистика по возрастам.txt", "w")
+        f = open(Path(OUTPUT_DIR) / "Статистика по возрастам.txt", "w", encoding='utf-8')
     else:
-        f = open("Статистика по возрастам УНИКАЛЬНЫЕ.txt", "w")
+        f = open(Path(OUTPUT_DIR) / "Статистика по возрастам УНИКАЛЬНЫЕ.txt", "w", encoding='utf-8')
     for i in range(0, 19):
         if ages[i] == 0:
             continue
@@ -310,9 +314,9 @@ def getFileListChildrensFromOrder(group):
     global g_inp, group_id_val
     g_inp = group
 
-    group_id_val = groups[int(group)]['id']
+    group_id_val = group['id']
 
-    new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":'+YEAR+',"comparison":"eq"},{"property":"event_id","value":'+ groups[g_inp]['event_id'] +',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(group_id_val) + '","comparison":"eq"},{"property":"state","value":["approve"],"comparison":"in"}]'
+    new_url = 'https://booking.dop29.ru/api/rest/order?_dc=1695285515100&page=1&start=0&length=25&extFilters=[{"property":"fact_academic_year_id","value":'+YEAR+',"comparison":"eq"},{"property":"event_id","value":'+ group['event_id'] +',"comparison":"eq"},{"property":"fact_group_id","value":"' + str(group_id_val) + '","comparison":"eq"},{"property":"state","value":["approve"],"comparison":"in"}]'
 
     r = session.get(new_url, headers=headers)
     b = json.loads(r.text)
@@ -324,8 +328,8 @@ def getFileListChildrensFromOrder(group):
         child = json.loads(r.text)['data'][0]
         list_names.append(child['last_name'] + " " + child['first_name'] + " " + child['patro_name'])
 
-    file = open(dir + '\\' + "Подтверждённые заявки " + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + '.txt', 'w',
-                encoding="utf-8")
+    file = open(Path(OUTPUT_DIR) / f"Подтверждённые заявки {group['program_name']} {group['name']}.txt",
+                'w', encoding="utf-8")
     file.write("\n".join(list_names))
     file.close()
 
@@ -394,7 +398,7 @@ def number_6(target_sum):
         if len(childrens) < target_sum and len(childrens) != 0:
             problem_groups.append("Группа: {0}, {1} человек!".format (g['program_name'] + " " + g['name'], len(childrens)))
 
-    f = open("ПРОБЛЕМНЫЕ ГРУППЫ.txt", "w")
+    f = open(Path(OUTPUT_DIR) / "ПРОБЛЕМНЫЕ ГРУППЫ.txt", "w")
     for g in problem_groups:
         f.write(g + '\n')
     f.close()
@@ -424,7 +428,7 @@ def find_duplicates():
         if len(childs_and_groups[key]) > 1:
             duplicated[key] = childs_and_groups[key]
 
-    f = open("Дубликаты.txt", "w")
+    f = open(Path(OUTPUT_DIR) / "Дубликаты.txt", "w")
     for key in duplicated:
 
         str_groups = '\n'
@@ -457,7 +461,7 @@ def forced_child_adding(in_group = True):
             all_childrens.extend(also_childs)
 
     filename = input('Файл с детьми для добавления')
-    f = open(filename, 'r', encoding='utf-8')
+    f = open(Path(OUTPUT_DIR) / filename, 'r', encoding='utf-8')
     rows = f.readlines()
     f.close()
 
@@ -684,10 +688,10 @@ def generateDiagnostic(group, existing = True):
 
     if existing:
         save_document(doc,
-                  f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+                  Path(OUTPUT_DIR) / f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
     else:
         save_document(doc,
-                      f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+                      Path(OUTPUT_DIR) / f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
 
 
 def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
@@ -731,7 +735,7 @@ def getDiagnostics(groups, existing = True):
             generateDiagnostic(int(group)-1, existing=existing)
     else:
         generateDiagnostic(int(groups)-1, existing=existing)
-    f = open('Диагностика суммы.txt', 'w', encoding='utf-8')
+    f = open(Path(OUTPUT_DIR) / 'Диагностика суммы.txt', 'w', encoding='utf-8')
     for key, value in diagnostics_sums.items():
         f.write(f"{key} Высокий: {value['high']} Средний: {value['middle']}\n")
     f.close()
@@ -1017,7 +1021,7 @@ while True:
             i = i + 1
             print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
 
-        input_str = input("Выбери группу")
+        input_str = input("Выбери группу ")
         if input_str == '#':
             continue
 
@@ -1031,7 +1035,7 @@ while True:
                 print("\rСтатус: {0}".format(str(row[2])), end="")
 
     if choose == '6':
-        input_str = input("Группы до какого количества человек Вы хотели бы найти?")
+        input_str = input("Группы до какого количества человек Вы хотели бы найти? ")
         if input_str == '#':
             continue
         target_count = int(input_str)
@@ -1044,9 +1048,9 @@ while True:
         stat_of_ages(True)
 
     if choose == '9':
-        file_exits = os.path.isfile('negative_groups.txt')
+        file_exits = os.path.isfile(Path(OUTPUT_DIR) / 'negative_groups.txt')
         if file_exits:
-            f = open('negative_groups.txt', 'r', encoding="utf-8")
+            f = open(Path(OUTPUT_DIR) / 'negative_groups.txt', 'r', encoding="utf-8")
             negatve_groups = f.readlines()
             f.close()
             stat_of_ages(by_program_name=True, negative_groups=negatve_groups)
@@ -1068,7 +1072,7 @@ while True:
             i = i + 1
             print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
 
-        input_str = input('Выберите группу')
+        input_str = input('Выберите группу ')
         if input_str == '#':
             continue
 
@@ -1083,7 +1087,7 @@ while True:
             i = i + 1
             print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
 
-        input_str = input('Выберите группу')
+        input_str = input('Выберите группу ')
         if input_str == '#':
             continue
         getDiagnostics(input_str, False)
