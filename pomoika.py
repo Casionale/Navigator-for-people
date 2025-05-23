@@ -1,32 +1,24 @@
-import codecs
-import datetime
+import json
 import os
 import random
 
 import pandas
-import requests
-import json
-import time
-
-from docx.shared import Pt
-from jinja2 import Environment, PackageLoader, select_autoescape, FileSystemLoader
-import pdfkit
-from docx import Document
-
 import pandas as pd
-import numpy
-
+import requests
+from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.text import WD_BREAK
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
 from docx.shared import Inches
+from docx.shared import Pt
+
 
 class bcolors:
     HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
+    OKBLUE: str = '\033[94m'
+    OKCYAN: str = '\033[96m'
+    OKGREEN: str = '\033[92m'
     WARNING = '\033[93m'
     FAIL = '\033[91m'
     ENDC = '\033[0m'
@@ -34,9 +26,11 @@ class bcolors:
     UNDERLINE = '\033[4m'
 
 class rgbcolors:
-    def Color(r, g, b):
+    @staticmethod
+    def color(r, g, b):
         return '\033[38;2;{0};{1};{2}m '.format(r,g,b)
-    def End():
+    @staticmethod
+    def end():
         return '\033[0m'
 
 class progressBar():
@@ -312,181 +306,7 @@ def get_all_info_child(id):
     except:
         return []
 
-
-def printGroup():
-    global new_url, r, b, i
-    print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
-    new_url = 'https://booking.dop29.ru/api/attendance/members/get?_dc=1641896197594&page=1&start=0&length=25&extFilters=[{"property":"group_id","value":"' + str(
-        group_id_val) + '"},{"property":"academic_year_id","value":"' + str(YEAR) + '"}]'
-    r = session.get(new_url, headers=headers)
-    b = json.loads(r.text)
-    list_childrens = b['data']
-    new_list_childrens = []
-    for i in range(0, len(list_childrens)):
-        if list_childrens[i]['type_active'] == 1:
-            new_list_childrens.append(list_childrens[i])
-    list_childrens = new_list_childrens
-    # lc = []
-    # for i in range(0, len(list_childrens)-1):
-    #    lc.append({k: str(v).encode("utf-8") for k,v in list_childrens[i].items()})
-    for i in range(len(list_childrens)):
-        cursor = list_childrens[i]
-        pos = i
-
-        while pos > 0 and list_childrens[pos - 1]['kid_last_name'] > cursor['kid_last_name']:
-            # Меняем местами число, продвигая по списку
-            list_childrens[pos] = list_childrens[pos - 1]
-            pos = pos - 1
-        # Остановимся и сделаем последний обмен
-        list_childrens[pos] = cursor
-    example_date = datetime.date(2021, 9, 1) # ДАТЫ!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    keys = [], [], []
-    start_date = datetime.date(2021, 9, 1)
-    end_date = datetime.date(2022, 6, 10)
-    while start_date < end_date:
-        keys[0].append(start_date)
-        keys[1].append('a' + str(start_date.year) + '_' + str(start_date.month) + '_' + str(start_date.day))
-        start_date = start_date + datetime.timedelta(days=1)
-    days = []
-    list = {}
-    for c in list_childrens:
-        for str_date in keys[1]:
-            if str_date in c:
-                if c[str_date] == 1 or c[str_date] == 0:  # Все дети, маркер 0 или 1
-                    if str_date in list:
-                        list[str_date].append(c)
-                    else:
-                        list[str_date] = []
-                        list[str_date].append(c)
-    new_list = {}
-    for str_date in list:
-        buf = list[str_date]
-        zero_count = 0
-        for i in buf:
-            if i[str_date] == 0:
-                zero_count += 1
-        if zero_count != len(buf):
-            new_list[str_date] = buf
-    list = new_list
-    env = Environment(
-        loader=FileSystemLoader(dir + '\\templates'),
-        autoescape=select_autoescape(['html', 'xml'])
-    )
-    template = env.get_template('template.html')
-    new_list = [], [], []  # месяц, день недели, день
-    monthNames = ["", "Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь",
-                  "Ноябрь", "Декабрь"]
-    dnNames = ['ПН', 'ВТ', 'СР', 'ЧТ', 'ПТ', 'СБ', 'ВС']
-    spans = []
-    j = 0
-    for i in range(0, len(keys[0]) - 1):
-        if keys[1][i] in list:
-            d = keys[0][i]
-            m = d.month
-            dn = d.weekday()
-            dday = d.day
-            new_list[0].append(monthNames[m])
-            new_list[1].append(dnNames[dn])
-            new_list[2].append(dday)
-    beforeMonth = ''
-    monthcount = 0
-    spans = []
-    mouthNames = []
-    spansCount = 0
-    for m in new_list[0]:
-        if beforeMonth == m:
-            spansCount += 1
-        else:
-            beforeMonth = m
-            monthcount += 1
-            if spansCount != 0:
-                spans.append(spansCount)
-            mouthNames.append(m)
-            spansCount = 1
-    spans.append(spansCount)
-    rowsChildrens = []
-    for i in range(0, len(list_childrens)):
-        rowsChildrens.append([])
-        for j in range(0, len(keys[0])):
-            if keys[1][j] in list:
-                try:
-                    rowsChildrens[i].append(list[keys[1][j]][i][keys[1][j]])
-                except:
-                    print("Ошибка из-за дня" + str(keys[1][j]))
-    maxSpans = 2
-    for i in spans:
-        maxSpans += i
-    title = ["Группа: " + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + "   Педагог " + groups[g_inp][
-        'teacher'], maxSpans]
-
-    html = template.render(keys=keys, list=list, childrens=list_childrens, new_list=new_list,
-                           mouthNames=mouthNames, spans=spans, rowsChildrens=rowsChildrens, title=title)
-    file = open(dir + '\\' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + '.html', 'w',
-                encoding="utf-8")
-    file.write(html)
-    file.close()
-
-    config = pdfkit.configuration(wkhtmltopdf=bytes(dir + '\\wkhtmltopdf\\bin\\wkhtmltopdf.exe', 'utf-8'))
-    pdfkit.from_file(dir + '\\' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + '.html',
-                     dir + '\\' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'] + '.pdf',
-                     configuration=config, options={'--orientation': 'landscape'})
-    print("Готово")
-
-
-def getListOrganisingGroups(group):
-    global g_inp, group_id_val
-    template = "Список организованных групп ШАБЛОН.docx"
-    if not os.path.isfile(template):
-        os.system("")
-        print(f"{bcolors.WARNING}Файл шаблона найти не удалось, сорян 👉👈 {bcolors.ENDC}")
-        return
-    doc = Document(template)
-    g_inp = int(group)
-    group_id_val = groups[int(group)]['id']
-    filePath = printChildren()
-    f = open(filePath, "r")
-    file = f.readlines()
-    f.close()
-    table = doc.tables[1]
-
-    nums = ""
-    names = ""
-    ages = ""
-
-    iterator = 1
-    for child in file:
-        c = child.replace('\n', '').split('\t')
-        nums += str(iterator) + ('\n' if iterator < len(file) else '')
-        names += c[0] + ('\n' if iterator < len(file) else '')
-        ages += 'Да' + ('\n' if iterator < len(file) else '')
-        iterator+=1
-
-    style = table.style
-    font = style.font
-    font.name = 'Times New Roman'
-    font.size = Pt(12)
-
-    table.style = style
-
-    numCell = table.cell(1, 0)
-    numCell.text = nums
-    nameCell = table.cell(1, 1)
-    nameCell.text = names
-    ageCell = table.cell(1,2)
-    ageCell.text = ages
-    filename = filePath.replace('группы', 'огранизованных групп').replace('.txt', '.docx')
-    doc.save(filename.replace('Список огранизованных групп', 'СОГ'))
-    os.remove(filePath)
-
-def getListOrganisingGroupsAnyGroup(groups):
-    if ' ' in groups:
-        groups = groups.split(' ')
-        for group in groups:
-            getListOrganisingGroups(int(group))
-    else:
-        getListOrganisingGroups(int(groups))
-
-def getListChildrensFromOrder(group):
+def getFileListChildrensFromOrder(group):
     global g_inp, group_id_val
     g_inp = group
 
@@ -525,7 +345,7 @@ def getListChildrensFromOrderAnyGroups(groups_list):
     for group in groups_list:
             for g in groups:
                 if g == groups[int(group)]:
-                    getListChildrensFromOrder(g)
+                    getFileListChildrensFromOrder(g)
 
 
 
@@ -810,14 +630,265 @@ def to_study_from_approve():
 
     pass
 
+def generateDiagnostic(group, existing = True):
+    global group_id_val, groups
+    global diagnostics_sums
+
+    group_id_val = groups[int(group)]['id']
+    childrens = get_childrens()
+    # Высокий уровень 30%, средний 70% для выходной
+    list_fio = [f"{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}" for c in childrens]
+
+    table = []
+    summary = generate_data(diagnostics_sums, group, groups, list_fio, table, existing=existing)
+
+    header_table = [['#п/п', 'ФИО обучающегося', 'уровень знаний', '', ''],
+                    ['',     '',                 'низкий',         'средний', 'высокий']]
+
+    header_table.extend(table)
+    table = header_table
+
+    doc = create_document()
+
+    if existing:
+        parts = [(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
+    else:
+        parts = [(f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
+    add_paragraph(doc, parts, font_size=14, alignment='center')
+
+    t = add_table(doc, table)
+    merge_cells_with_content(t, 0, 0, 1, 0)
+    merge_cells_with_content(t, 0, 1, 1, 1)
+    merge_cells_with_content(t, 0, 2, 0, 4)
+
+    parts = [(f"Итого: {summary[0]} низкий, {summary[1]} средний, {summary[2]} высокий", False)]
+    add_paragraph(doc, parts, font_size=14, alignment='center')
+
+    add_page_break(doc)
+
+    parts = [(f"Критерии оценки", True)]
+    add_paragraph(doc, parts, font_size=14, alignment='center')
+
+    table = [['Уровень знаний и умений', 'Низкий уровень', 'Средний уровень', 'Высокий уровень'],
+             ['Теоретические знания', 'Определяются по результатам собеседования', '', ''],
+             ['Практические умения и навыки', 'Ребенок не смог выполнить задание без помощи педагога или работал самостоятельно, но задание выполнено не верно', 'Задание выполнено хорошо, но ребенок задавал вопросы в процессе выполнения', 'Задание выполнено самостоятельно, быстро и качественно'],
+             ['Личностные качества', 'Определяются в результате педагогического наблюдения в процессе выполнения задания', '', ''],
+             ]
+
+    t = add_table(doc, table)
+    merge_cells_with_content(t, 1, 1, 1, 3)
+    merge_cells_with_content(t, 3, 1, 3, 3)
+
+    parts = [(f"Форма определения уровня освоения программы:", True), (" педагогическое наблюдение, собеседование, анализ практической работы, результат проекта.", False)]
+    add_paragraph(doc, parts, font_size=14, alignment='justify')
+
+    if existing:
+        save_document(doc,
+                  f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+    else:
+        save_document(doc,
+                      f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
 
 
+def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
+    summary = [0, 0, 0]
+    for i in range(len(list_fio)):
+        r = random.randint(0, 100)
+        if r >= 70:
+            if existing:
+                table.append([i + 1, list_fio[i], "", "", "+"])
+            else:
+                table.append([i + 1, list_fio[i], "", "+", ""])
+            if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
+                    diagnostics_sums.keys():
+                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
+                    {'high': 0, 'middle': 0}
+            diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['high'] += 1
+
+            summary[2] += 1
+        else:
+            if existing:
+                table.append([i + 1, list_fio[i], "", "+", ""])
+            else:
+                table.append([i + 1, list_fio[i], "+", "", ""])
+
+            if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
+                    diagnostics_sums.keys():
+                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
+                    {'high': 0, 'middle': 0}
+            diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['middle'] += 1
+
+            summary[1] += 1
+    return summary
 
 
+def getDiagnostics(groups, existing = True):
+    global diagnostics_sums
+    diagnostics_sums = {}
+    if ' ' in groups:
+        groups = groups.split(' ')
+        for group in groups:
+            generateDiagnostic(int(group)-1, existing=existing)
+    else:
+        generateDiagnostic(int(groups)-1, existing=existing)
+    f = open('Диагностика суммы.txt', 'w', encoding='utf-8')
+    for key, value in diagnostics_sums.items():
+        f.write(f"{key} Высокий: {value['high']} Средний: {value['middle']}\n")
+    f.close()
+    pass
 
 
+def create_document():
+    """Создаёт новый документ Word."""
+    return Document()
 
 
+def add_paragraph(doc, parts, font_size=14, alignment=None):
+    """
+    Добавляет абзац с текстом в документ, поддерживая отдельные жирные слова.
+    :param doc: документ
+    :param parts: список кортежей (текст, жирный), например, [("Hello", False), ("World", True)]
+    :param font_size: размер шрифта
+    :param alignment: выравнивание текста (None, 'center', 'left', 'right', 'justify')
+    """
+    paragraph = doc.add_paragraph()
+    for text, bold in parts:
+        run = paragraph.add_run(text)
+        run.bold = bold
+        run.font.size = Pt(font_size)
+
+    if alignment:
+        if alignment == 'center':
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        elif alignment == 'left':
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+        elif alignment == 'right':
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+        elif alignment == 'justify':
+            # Выравнивание по обеим сторонам (приближение к выравниванию по ширине)
+            paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+    return paragraph
+
+
+def set_cell_border(cell, **kwargs):
+    """
+    Устанавливает границы для ячейки.
+    :param cell: ячейка таблицы
+    :param kwargs: параметры границ
+    """
+    tcPr = cell._element.get_or_add_tcPr()
+
+    for border_name in ['top', 'left', 'bottom', 'right']:
+        border = tcPr.find(qn(f'w:{border_name}'))
+        if border is None:
+            border = OxmlElement(f'w:{border_name}')
+            tcPr.append(border)
+        for attr, value in kwargs.items():
+            border.set(qn(f'w:{attr}'), str(value))
+
+
+def add_table(doc, data):
+    """
+    Добавляет таблицу в документ с границами.
+    :param doc: документ
+    :param data: список списков, представляющий строки и столбцы таблицы
+    """
+    table = doc.add_table(rows=len(data), cols=len(data[0]))
+
+    for i, row in enumerate(data):
+        for j, cell in enumerate(row):
+            table_cell = table.cell(i, j)
+            table_cell.text = str(cell)
+            set_cell_border(table_cell, val="single", sz="4", space="0", color="000000")
+
+    # Автоматически подгоняем ширину столбцов под текст
+    for col in table.columns:
+        max_length = max(len(cell.text) for cell in col.cells)
+        for cell in col.cells:
+            cell.width = Inches(0.15 * max_length)  # Установка ширины в зависимости от длины текста
+            cell.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    return table
+
+
+def merge_cells_with_content(table, start_row, start_col, end_row, end_col):
+    """
+    Объединяет ячейки таблицы от start_row, start_col до end_row, end_col, если одна из ячеек заполнена, а другие пустые.
+    :param table: таблица
+    :param start_row: начальная строка
+    :param start_col: начальный столбец
+    :param end_row: конечная строка
+    :param end_col: конечный столбец
+    """
+    # Проверка содержимого ячеек
+    content = None
+    for row in range(start_row, end_row + 1):
+        for col in range(start_col, end_col + 1):
+            cell_text = table.cell(row, col).text.strip()
+            if cell_text:
+                if content and content != cell_text:
+                    raise ValueError("Конфликтующее содержимое ячеек")
+                content = cell_text
+
+    # Объединение ячеек
+    start_cell = table.cell(start_row, start_col)
+    end_cell = table.cell(end_row, end_col)
+    start_cell.merge(end_cell)
+
+    if content:
+        start_cell.text = content
+
+
+def center_text(cell):
+    """
+    Выравнивает текст в ячейке по центру.
+    :param cell: ячейка
+    """
+    for paragraph in cell.paragraphs:
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for run in paragraph.runs:
+            run.font.size = Pt(14)  # Установка размера шрифта
+
+
+def add_line_break(doc):
+    """Добавляет разрыв строки в документ."""
+    doc.add_paragraph().add_run().add_break()
+
+
+def add_page_break(doc):
+    """Добавляет разрыв страницы в документ."""
+    doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
+
+
+def save_document(doc, filename):
+    """Сохраняет документ под указанным именем файла."""
+    doc.save(filename)
+
+def child_search_online():
+    print('Для выхода введите #')
+    while True:
+        full_name = input("Введите ФИО: ")
+
+        if full_name == '#':
+            break
+
+        b = search_child_by_fio(full_name)
+
+        os.system('cls')
+        print('Найдены следующие дети:')
+
+        for i in range(len(b['data'])):
+            print(f"{i} {b['data'][i]['fio']} {b['data'][i]['birthday']} {b['data'][i]['approve_org_caption']}")
+
+
+def search_child_by_fio(full_name):
+    target_url = f'https://booking.dop29.ru/api/rest/safe/kid?_dc=1714046462894&special=1&page=1&start=0&length=20&extFilters=[{{"property":"fio","value":"{full_name}","comparison":"manual","type":null}}]'
+    r = session.get(url=target_url, headers=headers)
+    b = json.loads(r.text)
+    if b['err_code'] != 0 or len(b['data']) == 0:
+        print('Не найдено!')
+    return b
 
 FILTER = False
 diagnostics_sums = {}
@@ -865,287 +936,24 @@ if filter_choise == 1:
 
         print("Выбраны {0} групп".format(len(groups)))
 
-    def generateDiagnostic(group, existing = True):
-        global group_id_val, groups
-        global diagnostics_sums
-
-        group_id_val = groups[int(group)]['id']
-        childrens = get_childrens()
-        # Высокий уровень 30%, средний 70% для выходной
-        list_fio = [f"{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}" for c in childrens]
-
-        table = []
-        summary = generate_data(diagnostics_sums, group, groups, list_fio, table, existing=existing)
-
-        header_table = [['#п/п', 'ФИО обучающегося', 'уровень знаний', '', ''],
-                        ['',     '',                 'низкий',         'средний', 'высокий']]
-
-        header_table.extend(table)
-        table = header_table
-
-        doc = create_document()
-
-        if existing:
-            parts = [(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
-        else:
-            parts = [(f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
-        add_paragraph(doc, parts, font_size=14, alignment='center')
-
-        t = add_table(doc, table)
-        merge_cells_with_content(t, 0, 0, 1, 0)
-        merge_cells_with_content(t, 0, 1, 1, 1)
-        merge_cells_with_content(t, 0, 2, 0, 4)
-
-        parts = [(f"Итого: {summary[0]} низкий, {summary[1]} средний, {summary[2]} высокий", False)]
-        add_paragraph(doc, parts, font_size=14, alignment='center')
-
-        add_page_break(doc)
-
-        parts = [(f"Критерии оценки", True)]
-        add_paragraph(doc, parts, font_size=14, alignment='center')
-
-        table = [['Уровень знаний и умений', 'Низкий уровень', 'Средний уровень', 'Высокий уровень'],
-                 ['Теоретические знания', 'Определяются по результатам собеседования', '', ''],
-                 ['Практические умения и навыки', 'Ребенок не смог выполнить задание без помощи педагога или работал самостоятельно, но задание выполнено не верно', 'Задание выполнено хорошо, но ребенок задавал вопросы в процессе выполнения', 'Задание выполнено самостоятельно, быстро и качественно'],
-                 ['Личностные качества', 'Определяются в результате педагогического наблюдения в процессе выполнения задания', '', ''],
-                 ]
-
-        t = add_table(doc, table)
-        merge_cells_with_content(t, 1, 1, 1, 3)
-        merge_cells_with_content(t, 3, 1, 3, 3)
-
-        parts = [(f"Форма определения уровня освоения программы:", True), (" педагогическое наблюдение, собеседование, анализ практической работы, результат проекта.", False)]
-        add_paragraph(doc, parts, font_size=14, alignment='justify')
-
-        if existing:
-            save_document(doc,
-                      f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
-        else:
-            save_document(doc,
-                          f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
-
-
-    def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
-        summary = [0, 0, 0]
-        for i in range(len(list_fio)):
-            r = random.randint(0, 100)
-            if r >= 70:
-                if existing:
-                    table.append([i + 1, list_fio[i], "", "", "+"])
-                else:
-                    table.append([i + 1, list_fio[i], "", "+", ""])
-                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
-                        diagnostics_sums.keys():
-                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
-                        {'high': 0, 'middle': 0}
-                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['high'] += 1
-
-                summary[2] += 1
-            else:
-                if existing:
-                    table.append([i + 1, list_fio[i], "", "+", ""])
-                else:
-                    table.append([i + 1, list_fio[i], "+", "", ""])
-
-                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
-                        diagnostics_sums.keys():
-                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
-                        {'high': 0, 'middle': 0}
-                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['middle'] += 1
-
-                summary[1] += 1
-        return summary
-
-
-    def getDiagnostics(groups, existing = True):
-        global diagnostics_sums
-        diagnostics_sums = {}
-        if ' ' in groups:
-            groups = groups.split(' ')
-            for group in groups:
-                generateDiagnostic(int(group)-1, existing=existing)
-        else:
-            generateDiagnostic(int(groups)-1, existing=existing)
-        f = open('Диагностика суммы.txt', 'w', encoding='utf-8')
-        for key, value in diagnostics_sums.items():
-            f.write(f"{key} Высокий: {value['high']} Средний: {value['middle']}\n")
-        f.close()
-        pass
-
-
-    def create_document():
-        """Создаёт новый документ Word."""
-        return Document()
-
-
-    def add_paragraph(doc, parts, font_size=14, alignment=None):
-        """
-        Добавляет абзац с текстом в документ, поддерживая отдельные жирные слова.
-        :param doc: документ
-        :param parts: список кортежей (текст, жирный), например, [("Hello", False), ("World", True)]
-        :param font_size: размер шрифта
-        :param alignment: выравнивание текста (None, 'center', 'left', 'right', 'justify')
-        """
-        paragraph = doc.add_paragraph()
-        for text, bold in parts:
-            run = paragraph.add_run(text)
-            run.bold = bold
-            run.font.size = Pt(font_size)
-
-        if alignment:
-            if alignment == 'center':
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            elif alignment == 'left':
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
-            elif alignment == 'right':
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-            elif alignment == 'justify':
-                # Выравнивание по обеим сторонам (приближение к выравниванию по ширине)
-                paragraph.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
-        return paragraph
-
-
-    def set_cell_border(cell, **kwargs):
-        """
-        Устанавливает границы для ячейки.
-        :param cell: ячейка таблицы
-        :param kwargs: параметры границ
-        """
-        tcPr = cell._element.get_or_add_tcPr()
-
-        for border_name in ['top', 'left', 'bottom', 'right']:
-            border = tcPr.find(qn(f'w:{border_name}'))
-            if border is None:
-                border = OxmlElement(f'w:{border_name}')
-                tcPr.append(border)
-            for attr, value in kwargs.items():
-                border.set(qn(f'w:{attr}'), str(value))
-
-
-    def add_table(doc, data):
-        """
-        Добавляет таблицу в документ с границами.
-        :param doc: документ
-        :param data: список списков, представляющий строки и столбцы таблицы
-        """
-        table = doc.add_table(rows=len(data), cols=len(data[0]))
-
-        for i, row in enumerate(data):
-            for j, cell in enumerate(row):
-                table_cell = table.cell(i, j)
-                table_cell.text = str(cell)
-                set_cell_border(table_cell, val="single", sz="4", space="0", color="000000")
-
-        # Автоматически подгоняем ширину столбцов под текст
-        for col in table.columns:
-            max_length = max(len(cell.text) for cell in col.cells)
-            for cell in col.cells:
-                cell.width = Inches(0.15 * max_length)  # Установка ширины в зависимости от длины текста
-                cell.paragraphs[0].paragraph_format.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-        return table
-
-
-    def merge_cells_with_content(table, start_row, start_col, end_row, end_col):
-        """
-        Объединяет ячейки таблицы от start_row, start_col до end_row, end_col, если одна из ячеек заполнена, а другие пустые.
-        :param table: таблица
-        :param start_row: начальная строка
-        :param start_col: начальный столбец
-        :param end_row: конечная строка
-        :param end_col: конечный столбец
-        """
-        # Проверка содержимого ячеек
-        content = None
-        for row in range(start_row, end_row + 1):
-            for col in range(start_col, end_col + 1):
-                cell_text = table.cell(row, col).text.strip()
-                if cell_text:
-                    if content and content != cell_text:
-                        raise ValueError("Конфликтующее содержимое ячеек")
-                    content = cell_text
-
-        # Объединение ячеек
-        start_cell = table.cell(start_row, start_col)
-        end_cell = table.cell(end_row, end_col)
-        start_cell.merge(end_cell)
-
-        if content:
-            start_cell.text = content
-
-
-    def center_text(cell):
-        """
-        Выравнивает текст в ячейке по центру.
-        :param cell: ячейка
-        """
-        for paragraph in cell.paragraphs:
-            paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
-            for run in paragraph.runs:
-                run.font.size = Pt(14)  # Установка размера шрифта
-
-
-    def add_line_break(doc):
-        """Добавляет разрыв строки в документ."""
-        doc.add_paragraph().add_run().add_break()
-
-
-    def add_page_break(doc):
-        """Добавляет разрыв страницы в документ."""
-        doc.add_paragraph().add_run().add_break(WD_BREAK.PAGE)
-
-
-    def save_document(doc, filename):
-        """Сохраняет документ под указанным именем файла."""
-        doc.save(filename)
-
-    def child_search_online():
-        print('Для выхода введите #')
-        while True:
-            full_name = input("Введите ФИО: ")
-
-            if full_name == '#':
-                break
-
-            b = search_child_by_fio(full_name)
-
-            os.system('cls')
-            print('Найдены следующие дети:')
-
-            for i in range(len(b['data'])):
-                print(f"{i} {b['data'][i]['fio']} {b['data'][i]['birthday']} {b['data'][i]['approve_org_caption']}")
-
-
-    def search_child_by_fio(full_name):
-        target_url = f'https://booking.dop29.ru/api/rest/safe/kid?_dc=1714046462894&special=1&page=1&start=0&length=20&extFilters=[{{"property":"fio","value":"{full_name}","comparison":"manual","type":null}}]'
-        r = session.get(url=target_url, headers=headers)
-        b = json.loads(r.text)
-        if b['err_code'] != 0 or len(b['data']) == 0:
-            print('Не найдено!')
-        return b
-
-
 
 while True:
     os.system("")
-    choose = input(bcolors.OKGREEN + 'МЕНЮ'+bcolors.ENDC+'\n'
+    choose = input(bcolors.OKGREEN + 'МЕНЮ' + bcolors.ENDC +'\n'
                    '0 Печать информации детей\n'
-                   '{0}2 Печать списка организованных групп{1}\n'.format(rgbcolors.Color(255, 0, 0),
-                                                                         rgbcolors.End()) +
                    '3 Печать статистики по возрастам\n'
                    '4 Печать списка из заявок (Когда зачисления ещё нет, но хочется получить список)\n'
-                   '5 ! Внести в навигатор свои{0}грязные{1} буквы\n'.format(rgbcolors.Color(255, 128, 0),
-                                                                         rgbcolors.End()) +
+                   '5 ! Внести в навигатор свои{0}грязные{1} буквы\n'.format(rgbcolors.color(255, 128, 0),
+                                                                             rgbcolors.end()) +
                    '6 Найти проблемные группы\n'
                    '7 Найти дубликаты детей\n'
-                   '{0}8 По возрастам и уникальные{1}\n'.format(rgbcolors.Color(127, 255, 212),
-                                                                         rgbcolors.End()) +
+                   '{0}8 По возрастам и уникальные{1}\n'.format(rgbcolors.color(127, 255, 212),
+                                                                rgbcolors.end()) +
                    '9 количество детей по программам\n'
-                   '{0}10 принудительная заявка детей в группу{1}\n'.format(rgbcolors.Color(198, 144, 53),
-                                                                         rgbcolors.End()) +
-                   '{0}11 принудительное зачисление детей в мероприятие{1}\n'.format(rgbcolors.Color(198, 144, 53),
-                                                                                rgbcolors.End()) +
+                   '{0}10 принудительная заявка детей в группу{1}\n'.format(rgbcolors.color(198, 144, 53),
+                                                                            rgbcolors.end()) +
+                   '{0}11 принудительное зачисление детей в мероприятие{1}\n'.format(rgbcolors.color(198, 144, 53),
+                                                                                     rgbcolors.end()) +
                    '12 Принять на обучение\n'
                    '13 Генерировать выходную диагностику\n'
                    '14 Поиск детей онлайн по ФИО\n'
@@ -1154,25 +962,6 @@ while True:
 
     i = 0
 
-    if choose == '1':
-        print('Группы')
-        for g in groups:
-            i = i + 1
-            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-        print("-1 ПЕЧАТЬ ВСЕХ")
-        print('Какую группу вывести на печать? ')
-        input_str = input()
-        if input_str == '#':
-            continue
-        g_inp = int(input_str)
-        if g_inp != -1:
-            group_id_val = groups[g_inp]['id']
-            printGroup()
-        else:
-            for i in range(0, len(groups)):
-                g_inp = i
-                group_id_val = groups[i]['id']
-                printGroup()
     if choose == '0':
         print('Группы')
         for g in groups:
@@ -1184,7 +973,7 @@ while True:
         if input_str == '#':
             continue
 
-        groupss = input_str.split(' ')
+        groupss: list[str] = input_str.split(' ')
 
         group = int(groupss[0])
 
@@ -1198,19 +987,6 @@ while True:
                 g_inp = i
                 group_id_val = groups[i]['id']
                 printChildren()
-
-    if choose == '2':
-        print('Группы для генерации списка организованных групп: \n')
-        for g in groups:
-            i = i + 1
-            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
-
-        input_str = input('Выберите группу')
-        if input_str == '#':
-            continue
-
-        getListOrganisingGroupsAnyGroup(input_str)
-
 
     if choose == '3':
         stat_of_ages()
