@@ -1,6 +1,7 @@
 import json
 import os
 import random
+from datetime import datetime
 
 import pandas
 import pandas as pd
@@ -64,6 +65,18 @@ OUTPUT_DIR = Path(dir) / 'output'
 
 if not OUTPUT_DIR.exists():
     os.makedirs(OUTPUT_DIR)
+
+def get_save_path(filename):
+    global OUTPUT_DIR
+    now = datetime.now()
+    str_now = now.strftime('%m-%d-%y')
+
+    folder_path = OUTPUT_DIR / str_now
+
+    if not folder_path.exists():
+        os.makedirs(folder_path)
+
+    return folder_path / filename
 
 session = requests.Session()
 r = session.post(url, headers={
@@ -152,7 +165,7 @@ def printChildren():
     print('Выбрана группа ' + groups[g_inp]['program_name'] + ' ' + groups[g_inp]['name'])
     year = YEAR
     list_childrens = get_childrens()
-    f = open(Path(OUTPUT_DIR) / f"Список группы {groups[g_inp]['program_name']} {groups[g_inp]['name']}.txt", 'w', encoding="utf-8")
+    f = open(get_save_path(f"Список группы {groups[g_inp]['program_name']} {groups[g_inp]['name']}.txt"), 'w', encoding="utf-8")
     for c in list_childrens:
         line = (f'{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}\t'
                 f'{c['kid_birthday'].replace('-', '.')}\t{c['kid_age']}\n')
@@ -236,9 +249,9 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
             print(pb.getPB(all=len(list_childrens), progress=iterator_childrens), end="")
 
     if not unique:
-        f = open(Path(OUTPUT_DIR) / "Статистика по возрастам.txt", "w", encoding='utf-8')
+        f = open(get_save_path("Статистика по возрастам.txt"), "w", encoding='utf-8')
     else:
-        f = open(Path(OUTPUT_DIR) / "Статистика по возрастам УНИКАЛЬНЫЕ.txt", "w", encoding='utf-8')
+        f = open(get_save_path("Статистика по возрастам УНИКАЛЬНЫЕ.txt"), "w", encoding='utf-8')
     for i in range(0, 19):
         if ages[i] == 0:
             continue
@@ -328,7 +341,7 @@ def getFileListChildrensFromOrder(group):
         child = json.loads(r.text)['data'][0]
         list_names.append(child['last_name'] + " " + child['first_name'] + " " + child['patro_name'])
 
-    file = open(Path(OUTPUT_DIR) / f"Подтверждённые заявки {group['program_name']} {group['name']}.txt",
+    file = open(get_save_path(f"Подтверждённые заявки {group['program_name']} {group['name']}.txt"),
                 'w', encoding="utf-8")
     file.write("\n".join(list_names))
     file.close()
@@ -398,7 +411,7 @@ def number_6(target_sum):
         if len(childrens) < target_sum and len(childrens) != 0:
             problem_groups.append("Группа: {0}, {1} человек!".format (g['program_name'] + " " + g['name'], len(childrens)))
 
-    f = open(Path(OUTPUT_DIR) / "ПРОБЛЕМНЫЕ ГРУППЫ.txt", "w")
+    f = open(get_save_path("ПРОБЛЕМНЫЕ ГРУППЫ.txt"), "w")
     for g in problem_groups:
         f.write(g + '\n')
     f.close()
@@ -428,7 +441,7 @@ def find_duplicates():
         if len(childs_and_groups[key]) > 1:
             duplicated[key] = childs_and_groups[key]
 
-    f = open(Path(OUTPUT_DIR) / "Дубликаты.txt", "w")
+    f = open(get_save_path("Дубликаты.txt"), "w")
     for key in duplicated:
 
         str_groups = '\n'
@@ -461,7 +474,7 @@ def forced_child_adding(in_group = True):
             all_childrens.extend(also_childs)
 
     filename = input('Файл с детьми для добавления')
-    f = open(Path(OUTPUT_DIR) / filename, 'r', encoding='utf-8')
+    f = open(filename, 'r', encoding='utf-8')
     rows = f.readlines()
     f.close()
 
@@ -688,10 +701,10 @@ def generateDiagnostic(group, existing = True):
 
     if existing:
         save_document(doc,
-                  Path(OUTPUT_DIR) / f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+                  get_save_path(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx"))
     else:
         save_document(doc,
-                      Path(OUTPUT_DIR) / f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+                      get_save_path(f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx"))
 
 
 def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
@@ -735,7 +748,7 @@ def getDiagnostics(groups, existing = True):
             generateDiagnostic(int(group)-1, existing=existing)
     else:
         generateDiagnostic(int(groups)-1, existing=existing)
-    f = open(Path(OUTPUT_DIR) / 'Диагностика суммы.txt', 'w', encoding='utf-8')
+    f = open(get_save_path('Диагностика суммы.txt'), 'w', encoding='utf-8')
     for key, value in diagnostics_sums.items():
         f.write(f"{key} Высокий: {value['high']} Средний: {value['middle']}\n")
     f.close()
@@ -1047,10 +1060,11 @@ while True:
     if choose == '8':
         stat_of_ages(True)
 
+    #Не надо менять open
     if choose == '9':
-        file_exits = os.path.isfile(Path(OUTPUT_DIR) / 'negative_groups.txt')
+        file_exits = os.path.isfile('negative_groups.txt')
         if file_exits:
-            f = open(Path(OUTPUT_DIR) / 'negative_groups.txt', 'r', encoding="utf-8")
+            f = open('negative_groups.txt', 'r', encoding="utf-8")
             negatve_groups = f.readlines()
             f.close()
             stat_of_ages(by_program_name=True, negative_groups=negatve_groups)
