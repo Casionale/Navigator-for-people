@@ -480,7 +480,7 @@ def getListOrganisingGroups(group):
 
 def getListOrganisingGroupsAnyGroup(groups):
     if ' ' in groups:
-        groups = groups.split[' ']
+        groups = groups.split(' ')
         for group in groups:
             getListOrganisingGroups(int(group))
     else:
@@ -520,10 +520,12 @@ def getListChildrensFromOrder(group):
     list_childrens = b['data']
     return list_childrens
 
-def getListChildrensFromOrderAnyGroups(groups):
-    groups = groups.split(" ")
-    for group in groups:
-        getListChildrensFromOrder(int(group))
+def getListChildrensFromOrderAnyGroups(groups_list):
+    groups_list = groups_list.split(" ")
+    for group in groups_list:
+            for g in groups:
+                if g == groups[int(group)]:
+                    getListChildrensFromOrder(g)
 
 
 
@@ -863,7 +865,7 @@ if filter_choise == 1:
 
         print("Выбраны {0} групп".format(len(groups)))
 
-    def generateDiagnostic(group):
+    def generateDiagnostic(group, existing = True):
         global group_id_val, groups
         global diagnostics_sums
 
@@ -873,28 +875,7 @@ if filter_choise == 1:
         list_fio = [f"{c['kid_last_name']} {c['kid_first_name']} {c['kid_patro_name']}" for c in childrens]
 
         table = []
-        summary = [0, 0, 0]
-        for i in range(len(list_fio)):
-            r = random.randint(0, 100)
-            if r >= 70:
-                table.append([i+1, list_fio[i], "", "", "+"])
-                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
-                        diagnostics_sums.keys():
-                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
-                        {'high':0, 'middle':0}
-                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['high'] += 1
-
-                summary[2] += 1
-            else:
-                table.append([i + 1, list_fio[i], "", "+", ""])
-
-                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
-                        diagnostics_sums.keys():
-                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
-                        {'high':0, 'middle':0}
-                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['middle'] += 1
-
-                summary[1] += 1
+        summary = generate_data(diagnostics_sums, group, groups, list_fio, table, existing=existing)
 
         header_table = [['#п/п', 'ФИО обучающегося', 'уровень знаний', '', ''],
                         ['',     '',                 'низкий',         'средний', 'высокий']]
@@ -904,7 +885,10 @@ if filter_choise == 1:
 
         doc = create_document()
 
-        parts = [(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
+        if existing:
+            parts = [(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
+        else:
+            parts = [(f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}", True)]
         add_paragraph(doc, parts, font_size=14, alignment='center')
 
         t = add_table(doc, table)
@@ -933,20 +917,55 @@ if filter_choise == 1:
         parts = [(f"Форма определения уровня освоения программы:", True), (" педагогическое наблюдение, собеседование, анализ практической работы, результат проекта.", False)]
         add_paragraph(doc, parts, font_size=14, alignment='justify')
 
-        save_document(doc,
+        if existing:
+            save_document(doc,
                       f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
+        else:
+            save_document(doc,
+                          f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx")
 
 
+    def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
+        summary = [0, 0, 0]
+        for i in range(len(list_fio)):
+            r = random.randint(0, 100)
+            if r >= 70:
+                if existing:
+                    table.append([i + 1, list_fio[i], "", "", "+"])
+                else:
+                    table.append([i + 1, list_fio[i], "", "+", ""])
+                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
+                        diagnostics_sums.keys():
+                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
+                        {'high': 0, 'middle': 0}
+                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['high'] += 1
 
-    def getDiagnostics(groups):
+                summary[2] += 1
+            else:
+                if existing:
+                    table.append([i + 1, list_fio[i], "", "+", ""])
+                else:
+                    table.append([i + 1, list_fio[i], "+", "", ""])
+
+                if f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}" not in \
+                        diagnostics_sums.keys():
+                    diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"] = \
+                        {'high': 0, 'middle': 0}
+                diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['middle'] += 1
+
+                summary[1] += 1
+        return summary
+
+
+    def getDiagnostics(groups, existing = True):
         global diagnostics_sums
         diagnostics_sums = {}
         if ' ' in groups:
             groups = groups.split(' ')
             for group in groups:
-                generateDiagnostic(int(group)-1)
+                generateDiagnostic(int(group)-1, existing=existing)
         else:
-            generateDiagnostic(int(groups)-1)
+            generateDiagnostic(int(groups)-1, existing=existing)
         f = open('Диагностика суммы.txt', 'w', encoding='utf-8')
         for key, value in diagnostics_sums.items():
             f.write(f"{key} Высокий: {value['high']} Средний: {value['middle']}\n")
@@ -1112,8 +1131,6 @@ while True:
     os.system("")
     choose = input(bcolors.OKGREEN + 'МЕНЮ'+bcolors.ENDC+'\n'
                    '0 Печать информации детей\n'
-                   '{0}1 Печать журнала{1}\n'.format(rgbcolors.Color(255, 0, 0),
-                                                     rgbcolors.End()) +
                    '{0}2 Печать списка организованных групп{1}\n'.format(rgbcolors.Color(255, 0, 0),
                                                                          rgbcolors.End()) +
                    '3 Печать статистики по возрастам\n'
@@ -1130,8 +1147,9 @@ while True:
                    '{0}11 принудительное зачисление детей в мероприятие{1}\n'.format(rgbcolors.Color(198, 144, 53),
                                                                                 rgbcolors.End()) +
                    '12 Принять на обучение\n'
-                   '13 генерировать входную или выходную диагностику\n'
+                   '13 Генерировать выходную диагностику\n'
                    '14 Поиск детей онлайн по ФИО\n'
+                   '15 Генерировать входную диагностику\n'
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -1282,6 +1300,17 @@ while True:
 
     if choose == '14':
         child_search_online()
+
+    if choose == '15':
+        print('Группы для генерации диагностики: \n')
+        for g in groups:
+            i = i + 1
+            print(str(i) + ' ' + g['program_name'] + ' ' + g['id'] + " " + g['name'])
+
+        input_str = input('Выберите группу')
+        if input_str == '#':
+            continue
+        getDiagnostics(input_str, False)
 
 
 
