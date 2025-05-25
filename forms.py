@@ -40,28 +40,22 @@ class FormChildrenList(npyscreen.ActionForm):
         self.parentApp.setNextForm("MAIN")
 
     def on_cancel(self):
-        # Возврат назад
         self.parentApp.setNextForm("MAIN")
 
 
 class FilterChoiceForm(npyscreen.ActionForm):
 
     def create(self):
-        self.name = "Использовать фильтр?"
-        self.choice = self.add(npyscreen.TitleSelectOne,
-                               name="Использовать фильтр?",
-                               values=["Да", "Нет"],
-                               max_height=4,
-                               scroll_exit=True)
+        self.name = "Приветствие"
+        self.add(npyscreen.FixedText, value='Добро пожаловать в Навигатор для людей', editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value='Нажмите OK внизу справа если хотите использовать фильтр', editable=False)
+        self.add(npyscreen.FixedText, value='Нажмите Cancel внизу справа если НЕ хотите использовать фильтр', editable=False)
 
     def on_ok(self):
-        if self.choice.value == [0]:  # Да
-            self.parentApp.setNextForm("USER_SELECT")
-        else:  # Нет
-            self.parentApp.setNextForm("MAIN")
+        self.parentApp.setNextForm("USER_SELECT")
 
     def on_cancel(self):
-        self.parentApp.setNextForm(None)
+        self.parentApp.setNextForm("MAIN")
 
 class UserSelectForm(npyscreen.ActionForm):
     def create(self):
