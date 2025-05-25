@@ -1,6 +1,6 @@
 import npyscreen
-from forms import FormChildrenList, FilterChoiceForm, UserSelectForm
-
+from forms import FormChildrenList, FilterChoiceForm, UserSelectForm, GroupsSelectForm, PrintChildForm
+from application import App
 
 class MainMenuForm(npyscreen.FormBaseNew):
 
@@ -34,7 +34,7 @@ class MainMenuForm(npyscreen.FormBaseNew):
 
     def beforeEditing(self):
         # При входе на форму обновим список
-        self.hello_string.value = f"Добро пожаловать, {self.parentApp.filtered_users[0] 
+        self.hello_string.value = f"Добро пожаловать, {self.parentApp.filtered_users[0]
         if len(self.parentApp.filtered_users) == 1 else 'божественный пользователь'}!"
 
     # Заглушки для обработки кнопок
@@ -42,7 +42,8 @@ class MainMenuForm(npyscreen.FormBaseNew):
         npyscreen.notify_confirm(f"Выполняется действие: {action_name}", title="Заглушка")
 
     def action_0(self):
-        self.parentApp.setNextForm("CHILD_LIST")
+        self.parentApp.setNextForm("GROUPS_SELECT")
+        self.parentApp.user_next_form = "PRINT_CHILD"
         self.editing = False
 
     def action_3(self): self._show_stub("Печать статистики по возрастам")
@@ -77,10 +78,11 @@ class MainMenuForm(npyscreen.FormBaseNew):
 
 
 class MyApp(npyscreen.NPSAppManaged):
-
+    user_next_form = None
     def __init__(self):
         super().__init__()
         self.filtered_users = ['']
+        self.application = App()
 
     def onStart(self):
         self.filtered_users = []
@@ -88,8 +90,17 @@ class MyApp(npyscreen.NPSAppManaged):
         self.addForm("USER_SELECT", UserSelectForm)
         self.addForm("MAIN", MainMenuForm)
         self.addForm("CHILD_LIST", FormChildrenList)
+        self.addForm("GROUPS_SELECT", GroupsSelectForm)
+        self.addForm("PRINT_CHILD", PrintChildForm)
+
 
         self.setNextForm("FILTER_CHOICE")
+        is_auth = self.application.auth()
+        if is_auth == 0:
+            npyscreen.notify_confirm("Авторизация удалась", title="Авторизация")
+        else:
+            npyscreen.notify_confirm(f"Авторизация НЕ удалась: {is_auth}", title="Авторизация")
+            self.parentApp.setNextForm(None)
 
 
 if __name__ == "__main__":

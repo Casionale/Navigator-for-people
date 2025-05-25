@@ -52,15 +52,21 @@ class FilterChoiceForm(npyscreen.ActionForm):
         self.add(npyscreen.FixedText, value='Нажмите Cancel внизу справа если НЕ хотите использовать фильтр', editable=False)
 
     def on_ok(self):
+        self.parentApp.application.use_filter = True
         self.parentApp.setNextForm("USER_SELECT")
 
     def on_cancel(self):
+        self.parentApp.application.use_filter = False
         self.parentApp.setNextForm("MAIN")
 
 class UserSelectForm(npyscreen.ActionForm):
     def create(self):
         self.name = "Выбор пользователей"
-        self.user_list = [f"Пользователь {i+1}" for i in range(20)]  # примерный список
+
+    def beforeEditing(self):
+        self.parentApp.application.get_all_groups()
+        self.user_list = [t for t in self.parentApp.application.get_teachers()]
+
         self.selector = self.add(npyscreen.MultiSelect,
                                  values=self.user_list,
                                  scroll_exit=True,
@@ -68,7 +74,9 @@ class UserSelectForm(npyscreen.ActionForm):
 
     def on_ok(self):
         selected = self.selector.get_selected_objects()
-        npyscreen.notify_confirm("Выбраны:\n" + "\n".join(selected), title="Фильтр")
+        self.parentApp.application.select_groups(selected)
+        npyscreen.notify_confirm(f"Выбрано {len(self.parentApp.application.groups)} групп\n"
+                                 "Выбраны:\n" + "\n".join(selected), title="Фильтр")
         # Сохраняем в переменную приложения
         self.parentApp.filtered_users = selected
 
@@ -76,3 +84,49 @@ class UserSelectForm(npyscreen.ActionForm):
 
     def on_cancel(self):
         self.parentApp.setNextForm("MAIN")
+
+class GroupsSelectForm(npyscreen.ActionForm):
+    def create(self):
+        self.name = "Выбор групп"
+
+    def beforeEditing(self):
+        self.parentApp.application.get_all_groups()
+        self.user_list = [
+                            f'{i} {t["id"]} {t["program_name"]} {t["name"]}'
+                            for i, t in enumerate(self.parentApp.application.groups)
+                        ]
+
+        self.selector = self.add(npyscreen.MultiSelect,
+                                 values=self.user_list,
+                                 scroll_exit=True,
+                                 max_height=15)
+
+    def on_ok(self):
+        selected = self.selector.get_selected_objects()
+        selected_groups_str = ''
+        for s in selected:
+            selected_groups_str += f"{s[:s.index(' ')]} "
+        self.parentApp.application.selected_groups = selected_groups_str
+
+        self.parentApp.setNextForm(self.parentApp.user_next_form)
+
+    def on_cancel(self):
+        self.parentApp.setNextForm("MAIN")
+
+class PrintChildForm(npyscreen.ActionForm):
+    info = None
+    def create(self):
+        self.name = "Печать информации о детях"
+        self.info = self.add(npyscreen.MultiLine, values=[], max_height=10, scroll_exit=True, editable=False)
+
+    def beforeEditing(self):
+        msg = self.parentApp.application.printChildren()
+        self.info.values = msg
+
+    def on_ok(self):
+        self.parentApp.user_next_form = "MAIN"
+        self.parentApp.setNextForm("MAIN")
+
+    def on_cancel(self):
+        self.on_ok()
+
