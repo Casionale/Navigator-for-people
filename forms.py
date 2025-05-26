@@ -90,7 +90,6 @@ class GroupsSelectForm(npyscreen.ActionForm):
         self.name = "Выбор групп"
 
     def beforeEditing(self):
-        self.parentApp.application.get_all_groups()
         self.user_list = [
                             f'{i} {t["id"]} {t["program_name"]} {t["name"]}'
                             for i, t in enumerate(self.parentApp.application.groups)
@@ -103,7 +102,16 @@ class GroupsSelectForm(npyscreen.ActionForm):
 
     def on_ok(self):
         selected = self.selector.get_selected_objects()
+
+        if not selected:
+            self.parentApp.setNextForm("GROUPS_SELECT")
+            npyscreen.notify_confirm("Выберите хотя бы одну группу!", title="Ошибочка")
+
+            self.editing = True
+            return
+
         selected_groups_str = ''
+
         for s in selected:
             selected_groups_str += f"{s[:s.index(' ')]} "
         self.parentApp.application.selected_groups = selected_groups_str
@@ -130,3 +138,119 @@ class PrintChildForm(npyscreen.ActionForm):
     def on_cancel(self):
         self.on_ok()
 
+class PrintStatOfAgesForm(npyscreen.ActionForm):
+    info = None
+    def create(self):
+        self.name = "Печать статистики по возрастам"
+        self.add(npyscreen.FixedText, value="О функции печати статистики по возрастам:", editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="Функция позволяет получить полноценную статистику по возрастам",
+                 editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="обучающихся: количество по возрасту, полу и направленности",
+                 editable=False, color="STANDOUT")
+        self.info = self.add(npyscreen.MultiLine, values=[], max_height=10, scroll_exit=True, editable=False)
+        self.add(npyscreen.ButtonPress, name="Начать", when_pressed_function=self.start)
+
+    def beforeEditing(self):
+        self.info.values = []
+
+    def start(self):
+        msg = self.parentApp.application.stat_of_ages()
+        self.info.values = msg
+        self.info.display()
+
+    def on_ok(self):
+        self.parentApp.user_next_form = "MAIN"
+        self.parentApp.setNextForm("MAIN")
+
+    def on_cancel(self):
+        self.on_ok()
+
+class PrintListFromOrderForm(npyscreen.ActionForm):
+    info = None
+    def create(self):
+        self.name = "Печать списка из заявок"
+        self.add(npyscreen.FixedText, value="О функции печати списка из заявок:", editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="Функция позволяет получить список детей из заявок",
+                 editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="на выбранные группы",
+                 editable=False, color="STANDOUT")
+        self.info = self.add(npyscreen.MultiLine, values=[], max_height=10, scroll_exit=True, editable=False)
+        self.add(npyscreen.ButtonPress, name="Начать", when_pressed_function=self.start)
+
+    def beforeEditing(self):
+        self.info.values = []
+
+    def start(self):
+        msg = self.parentApp.application.getListChildrensFromOrderAnyGroups()
+        self.info.values = msg
+        self.info.display()
+
+    def on_ok(self):
+        self.parentApp.user_next_form = "MAIN"
+        self.parentApp.setNextForm("MAIN")
+
+    def on_cancel(self):
+        self.on_ok()
+
+
+class CloseDaysForm(npyscreen.ActionForm):
+    info = None
+    user_list = []
+    def create(self):
+        self.name = "Закрыть дни"
+        self.add(npyscreen.FixedText, value="О функции закрытия дней:", editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="Функция позволяет автоматически проставить 80% посещаемость,",
+                 editable=False, color="STANDOUT")
+        self.add(npyscreen.FixedText, value="заполнить КТП. Необходимо подготовить валидный xls файл.",
+                 editable=False, color="STANDOUT")
+        self.file_input = self.add(npyscreen.TitleFilenameCombo, name="Выберите файл:")
+
+        self.selector = self.add(npyscreen.TitleSelectOne, max_height=12,
+                                 name="Выберите группу:",
+                                 values=self.user_list,
+                                 scroll_exit=True)
+
+        self.info = self.add(npyscreen.MultiLine, values=[], max_height=2, scroll_exit=True, editable=False)
+        self.add(npyscreen.ButtonPress, name="Начать", when_pressed_function=self.start)
+
+    def beforeEditing(self):
+        self.info.values = []
+        self.user_list = [
+            f'{i} {t["id"]} {t["program_name"]} {t["name"]}'
+            for i, t in enumerate(self.parentApp.application.groups)
+        ]
+        self.selector.values = self.user_list
+        self.selector.display()
+
+    def start(self):
+        if self.selector.value:
+            selected_index = self.selector.value[0]
+            self.parentApp.application.selected_groups = (
+                                                             self.selector.values)[selected_index][:self.selector.values[selected_index].index(' ')]
+
+            filepath = self.file_input.value
+            if filepath:
+                msg = self.parentApp.application.up_close_day(filename=filepath,
+                                                              group=self.parentApp.application.groups[selected_index])
+                self.info.values = msg
+                self.info.display()
+
+
+            else:
+                npyscreen.notify_confirm("Файл не выбран!", title="Ошибка")
+                self.editing = True
+                return
+
+        else:
+            npyscreen.notify_confirm("Ничего не выбрано", title="Ошибка")
+            self.editing = True
+            return
+
+
+
+    def on_ok(self):
+        self.parentApp.user_next_form = "MAIN"
+        self.parentApp.setNextForm("MAIN")
+
+    def on_cancel(self):
+        self.on_ok()

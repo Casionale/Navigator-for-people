@@ -1,5 +1,6 @@
 import npyscreen
-from forms import FormChildrenList, FilterChoiceForm, UserSelectForm, GroupsSelectForm, PrintChildForm
+from forms import FormChildrenList, FilterChoiceForm, UserSelectForm, GroupsSelectForm, PrintChildForm, \
+    PrintStatOfAgesForm, PrintListFromOrderForm, CloseDaysForm
 from application import App
 
 class MainMenuForm(npyscreen.FormBaseNew):
@@ -46,11 +47,18 @@ class MainMenuForm(npyscreen.FormBaseNew):
         self.parentApp.user_next_form = "PRINT_CHILD"
         self.editing = False
 
-    def action_3(self): self._show_stub("Печать статистики по возрастам")
+    def action_3(self):
+        self.parentApp.setNextForm("PRINT_STATOFAGES")
+        self.editing = False
 
-    def action_4(self): self._show_stub("Печать списка из заявок")
+    def action_4(self):
+        self.parentApp.setNextForm("GROUPS_SELECT")
+        self.parentApp.user_next_form = "PRINT_FROMORDER"
+        self.editing = False
 
-    def action_5(self): self._show_stub("Внести в навигатор свои грязные буквы")
+    def action_5(self):
+        self.parentApp.setNextForm('CLOSE_DAY')
+        self.editing = False
 
     def action_6(self): self._show_stub("Найти проблемные группы")
 
@@ -92,15 +100,19 @@ class MyApp(npyscreen.NPSAppManaged):
         self.addForm("CHILD_LIST", FormChildrenList)
         self.addForm("GROUPS_SELECT", GroupsSelectForm)
         self.addForm("PRINT_CHILD", PrintChildForm)
+        self.addForm("PRINT_STATOFAGES", PrintStatOfAgesForm)
+        self.addForm("PRINT_FROMORDER", PrintListFromOrderForm)
+        self.addForm("CLOSE_DAY", CloseDaysForm)
 
 
         self.setNextForm("FILTER_CHOICE")
         is_auth = self.application.auth()
         if is_auth == 0:
             npyscreen.notify_confirm("Авторизация удалась", title="Авторизация")
+            pass
         else:
             npyscreen.notify_confirm(f"Авторизация НЕ удалась: {is_auth}", title="Авторизация")
-            self.parentApp.setNextForm(None)
+            self.setNextForm(None)
 
 
 if __name__ == "__main__":
