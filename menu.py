@@ -1,7 +1,17 @@
 import npyscreen
 from forms import FormChildrenList, FilterChoiceForm, UserSelectForm, GroupsSelectForm, PrintChildForm, \
-    PrintStatOfAgesForm, PrintListFromOrderForm, CloseDaysForm
+    PrintStatOfAgesForm, PrintListFromOrderForm, CloseDaysForm, ProblemGroupForm, DublicateChildForm, \
+    ChildByProgramForm, ForceChildAddForm, DiagnosticsForm, SearchChildForm
 from application import App
+
+
+#import pydevd_pycharm
+import sys
+sys.path.append(r"C:\Users\Admin\AppData\Local\JetBrains\PyCharm 2024.2.1\plugins\python-ce\helpers\pydev")
+
+import pydevd
+pydevd.settrace('localhost', port=5678, stdoutToServer=True, stderrToServer=True, suspend=False)
+
 
 class MainMenuForm(npyscreen.FormBaseNew):
 
@@ -21,17 +31,16 @@ class MainMenuForm(npyscreen.FormBaseNew):
         self.add(npyscreen.ButtonPress, name="7. Найти дубликаты детей", when_pressed_function=self.action_7)
         self.add(npyscreen.ButtonPress, name="8. По возрастам и уникальные", when_pressed_function=self.action_8)
         self.add(npyscreen.ButtonPress, name="9. Количество детей по программам", when_pressed_function=self.action_9)
-        self.add(npyscreen.ButtonPress, name="10. Принудительная заявка детей в группу",
-                 when_pressed_function=self.action_10)
-        self.add(npyscreen.ButtonPress, name="11. Принудительное зачисление детей в мероприятие",
-                 when_pressed_function=self.action_11)
-        self.add(npyscreen.ButtonPress, name="12. Принять на обучение", when_pressed_function=self.action_12)
-        self.add(npyscreen.ButtonPress, name="13. Генерировать выходную диагностику",
+        self.add(npyscreen.ButtonPress, name="10. Принудительная заявка детей в группу / зачислить в мероприятие",
+                 when_pressed_function=self.action_10, color='CRITICAL')
+        self.add(npyscreen.ButtonPress, name="12. Принять на обучение",
+                 when_pressed_function=self.action_12, color='CRITICAL')
+        self.add(npyscreen.ButtonPress, name="13. Генерировать диагностики",
                  when_pressed_function=self.action_13)
-        self.add(npyscreen.ButtonPress, name="14. Поиск детей онлайн по ФИО", when_pressed_function=self.action_14)
-        self.add(npyscreen.ButtonPress, name="15. Генерировать входную диагностику",
-                 when_pressed_function=self.action_15)
-        self.add(npyscreen.ButtonPress, name="Выход", when_pressed_function=self.exit_app)
+        self.add(npyscreen.ButtonPress, name="14. Поиск детей онлайн по ФИО",
+                 when_pressed_function=self.action_14)
+        self.add(npyscreen.ButtonPress, name="Выход",
+                 when_pressed_function=self.exit_app, color='GOOD')
 
     def beforeEditing(self):
         # При входе на форму обновим список
@@ -40,7 +49,7 @@ class MainMenuForm(npyscreen.FormBaseNew):
 
     # Заглушки для обработки кнопок
     def _show_stub(self, action_name):
-        npyscreen.notify_confirm(f"Выполняется действие: {action_name}", title="Заглушка")
+        npyscreen.notify_confirm(f"Действие: {action_name} не реализовано.", title="Заглушка")
 
     def action_0(self):
         self.parentApp.setNextForm("GROUPS_SELECT")
@@ -48,6 +57,7 @@ class MainMenuForm(npyscreen.FormBaseNew):
         self.editing = False
 
     def action_3(self):
+        PrintStatOfAgesForm.unique = False
         self.parentApp.setNextForm("PRINT_STATOFAGES")
         self.editing = False
 
@@ -60,23 +70,40 @@ class MainMenuForm(npyscreen.FormBaseNew):
         self.parentApp.setNextForm('CLOSE_DAY')
         self.editing = False
 
-    def action_6(self): self._show_stub("Найти проблемные группы")
+    def action_6(self):
+        self.parentApp.setNextForm('PROBLEM_GROUP')
+        self.editing = False
 
-    def action_7(self): self._show_stub("Найти дубликаты детей")
+    def action_7(self):
+        self.parentApp.setNextForm('DUPLICATE_GROUP')
+        self.editing = False
 
-    def action_8(self): self._show_stub("По возрастам и уникальные")
+    def action_8(self):
+        PrintStatOfAgesForm.unique = True
+        self.parentApp.setNextForm("PRINT_STATOFAGES")
+        self.editing = False
 
-    def action_9(self): self._show_stub("Количество детей по программам")
+    def action_9(self):
+        PrintStatOfAgesForm.unique = True
+        self.parentApp.setNextForm("CHILD_BY_PROGRAM")
+        self.editing = False
 
-    def action_10(self): self._show_stub("Принудительная заявка детей в группу")
-
-    def action_11(self): self._show_stub("Принудительное зачисление детей в мероприятие")
+    def action_10(self):
+        PrintStatOfAgesForm.unique = True
+        self.parentApp.setNextForm("FORCE_CHILD")
+        self.editing = False
 
     def action_12(self): self._show_stub("Принять на обучение")
 
-    def action_13(self): self._show_stub("Генерировать выходную диагностику")
+    def action_13(self):
+        self.parentApp.setNextForm("GROUPS_SELECT")
+        self.parentApp.user_next_form = "DIAGNOSTICS"
+        self.editing = False
 
-    def action_14(self): self._show_stub("Поиск детей онлайн по ФИО")
+    def action_14(self):
+        self.parentApp.setNextForm("SEARCHONLINE")
+        self.parentApp.user_next_form = "DIAGNOSTICS"
+        self.editing = False
 
     def action_15(self): self._show_stub("Генерировать входную диагностику")
 
@@ -103,6 +130,12 @@ class MyApp(npyscreen.NPSAppManaged):
         self.addForm("PRINT_STATOFAGES", PrintStatOfAgesForm)
         self.addForm("PRINT_FROMORDER", PrintListFromOrderForm)
         self.addForm("CLOSE_DAY", CloseDaysForm)
+        self.addForm("PROBLEM_GROUP", ProblemGroupForm)
+        self.addForm("DUPLICATE_GROUP", DublicateChildForm)
+        self.addForm("CHILD_BY_PROGRAM", ChildByProgramForm)
+        self.addForm("FORCE_CHILD", ForceChildAddForm)
+        self.addForm("DIAGNOSTICS", DiagnosticsForm)
+        self.addForm("SEARCHONLINE", SearchChildForm)
 
 
         self.setNextForm("FILTER_CHOICE")
