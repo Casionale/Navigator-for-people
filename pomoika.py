@@ -367,8 +367,8 @@ def getListChildrensFromOrderAnyGroups(groups_list):
 
 
 #Типы занятий
-#Практическая работа 9732
-#Учебное 7198
+#Практическая работа 30011
+#Учебное 9419
 #Дистанционное 3022
 #
 def close_day(date, theme, type, description):
@@ -722,7 +722,7 @@ def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = T
                     {'high': 0, 'middle': 0}
             diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['high'] += 1
 
-            summary[2] += 1
+            summary[2 if existing else 1] += 1
         else:
             if existing:
                 table.append([i + 1, list_fio[i], "", "+", ""])
@@ -735,7 +735,7 @@ def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = T
                     {'high': 0, 'middle': 0}
             diagnostics_sums[f"{groups[int(group)]['teacher']} {groups[int(group)]['program_name']}"]['middle'] += 1
 
-            summary[1] += 1
+            summary[1 if existing else 0] += 1
     return summary
 
 

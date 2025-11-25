@@ -6,11 +6,11 @@ from application import App
 
 
 #import pydevd_pycharm
-import sys
-sys.path.append(r"C:\Users\Admin\AppData\Local\JetBrains\PyCharm 2024.2.1\plugins\python-ce\helpers\pydev")
+#import sys
+#sys.path.append(r"C:\Users\Admin\AppData\Local\JetBrains\PyCharm 2024.2.1\plugins\python-ce\helpers\pydev")
 
-import pydevd
-pydevd.settrace('localhost', port=5678, stdoutToServer=True, stderrToServer=True, suspend=False)
+#import pydevd
+#pydevd.settrace('localhost', port=5678, stdoutToServer=True, stderrToServer=True, suspend=False)
 
 
 class MainMenuForm(npyscreen.FormBaseNew):
