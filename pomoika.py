@@ -394,7 +394,7 @@ def close_day(date, theme, type, description):
 
     KTP_url_POST = "https://booking.dop29.ru/api/event-group-lessons/upsert"# date group_id types:list description
 
-    payload = json.loads(json.dumps({'data':{'date':date + ' 00:00:00', 'group_id': group_id,'theme': theme ,'types': [str(int(type))], 'description': description}}))
+    payload = json.loads(json.dumps({'data':{'date':date, 'group_id': group_id,'theme': theme ,'types': [str(int(type))], 'description': description}}))
     #payload = '{"data":{"group_id":"25849","date":"2023-09-05 00:00:00","types":["9732"]}}'
     r = session.post(url=KTP_url_POST, headers=headers, json=payload)
     b = json.loads(r.text)
@@ -1044,7 +1044,7 @@ while True:
 
         for row in df.itertuples():
             if not pandas.isnull(row[2]):
-                close_day(row[2].strftime('%Y-%m-%d'), row[3], row[4], row[5])
+                close_day(row[2].strftime('%Y-%m-%d %H:%M:%S'), row[3], row[4], row[5])
                 print("\rСтатус: {0}".format(str(row[2])), end="")
 
     if choose == '6':
