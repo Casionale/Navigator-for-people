@@ -214,7 +214,8 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
                 section = get_section(event_id)
 
         if section not in ages_of_sections:
-            ages_of_sections[section] = [0],[0],{0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0,22:0,23:0} #Мальчики, девочки
+            ages_of_sections[section] = ([0],[0],{0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0,22:0,23:0},
+                                         {0:0, 1:0, 2:0,3:0,4:0,5:0,6:0,7:0,8:0,9:0,10:0,11:0,12:0,13:0,14:0,15:0,16:0,17:0,18:0,19:0,20:0,21:0,22:0,23:0}) #Мальчики, девочки, всего по годам, из них дев по годам
 
         iterator_childrens = 0
 
@@ -240,6 +241,7 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
                     sum_girls += 1
                     ages_of_sections[section][1][0] += 1
                     stupid_girls_by_ages[c['kid_age']]+=1
+                    ages_of_sections[section][3][c['kid_age']] += 1
                 else:
                     ages_of_sections[section][0][0] += 1
             except:
@@ -272,7 +274,7 @@ def stat_of_ages(unique = False, confirmed = False, by_program_name = False, neg
             if value[2][i] == 0:
                 continue
             else:
-                f.write(str(i) + " лет " + str(value[2][i]) + " человек\n")
+                f.write(str(i) + " лет " + str(value[2][i]) + " человек, из них девочек  "+str(value[3][i])+"\n")
 
     if unique:
         f.write("\nПовторов всего: " + str(repeteds))
@@ -1009,7 +1011,7 @@ while True:
                 printChildren()
 
     if choose == '3':
-        stat_of_ages(by_groups=True)
+        stat_of_ages(by_program_name=True)
 
     if choose == '4':
         print('Группы')
