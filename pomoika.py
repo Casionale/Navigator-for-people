@@ -382,6 +382,8 @@ def close_day(date, theme, type, description):
     group_id_val = groups[int(g_inp)]['id']
     group_id = groups[int(g_inp)]['id']
 
+    date_visit = datetime.strptime(date, '%Y-%m-%d %H:%M:%S').strftime('%Y-%m-%d')
+
     childrens = get_childrens()
 
     for c in childrens:
@@ -392,7 +394,7 @@ def close_day(date, theme, type, description):
             visit = False
         kid_id = c['kid_id']
         day_url_POST = "https://booking.dop29.ru/api/attendance/save" #date group_id kid_id value:true
-        payload = {'date':date,'group_id':group_id, 'kid_id':kid_id, 'value':visit}
+        payload = {'date':date_visit,'group_id':group_id, 'kid_id':kid_id, 'value':visit}
         r = session.post(url=day_url_POST, headers=headers, data=json.dumps(payload))
         b = json.loads(r.text)
         #print(b["success"])
@@ -1028,7 +1030,7 @@ while True:
 
     if choose == '5':
         filename = input("Введи название файла плес")
-
+        filename = filename.replace('"', '')
         if filename == '#':
             continue
 
@@ -1049,6 +1051,7 @@ while True:
 
         for row in df.itertuples():
             if not pandas.isnull(row[2]):
+                #close_day(row[2].strftime('%Y-%m-%d'), row[3], row[4], row[5])
                 close_day(row[2].strftime('%Y-%m-%d %H:%M:%S'), row[3], row[4], row[5])
                 print("\rСтатус: {0}".format(str(row[2])), end="")
 
