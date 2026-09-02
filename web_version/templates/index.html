@@ -1,0 +1,521 @@
+{% extends "base.html" %}
+{% block title %}Главная — Navigator API{% endblock %}
+{% block content %}
+<div class="grid-main">
+  <div>
+    <h1 style="margin-top:0;">Группы по программам</h1>
+
+    <div class="bento" style="--cell:180px;margin-bottom:18px;">
+      <div class="cell">
+        <div class="big">{{ groups|length }}</div>
+        <p>групп</p>
+      </div>
+      <div class="cell">
+        <div class="big">{{ by_program|length }}</div>
+        <p>программ</p>
+      </div>
+      <div class="cell">
+        <div class="big">{{ programs|length }}</div>
+        <p>всего программ</p>
+      </div>
+    </div>
+
+    {% for pid, item in by_program.items() %}
+      <div class="panel program-group mb">
+        <div class="program-head">
+          <span class="chev">▶</span>
+          <strong>{{ item.program['name'] if item.program and item.program.get('name') else 'Программа #'~pid }}</strong>
+          <span class="badge">{{ item.groups|length }}</span>
+        </div>
+        <div class="program-body">
+          <table class="sortable-table">
+            <thead>
+              <tr><th class="sortable num" data-sort="id" title="Сортировать по ID">ID</th><th class="sortable" data-sort="name">Группа</th><th class="sortable" data-sort="teacher">Преподаватель</th><th class="sortable" data-sort="count">Учащихся</th><th class="sortable" data-sort="age">Возраст</th><th></th></tr>
+            </thead>
+            <tbody>
+              {% for g in item.groups %}
+              <tr data-id="{{ g['id'] }}" data-name="{{ g.get('name') or '' }}" data-teacher="{{ g.get('teacher') or '' }}"
+                  data-count="{{ g.get('_approve') if g.get('_approve') is not none else 0 }}" data-age="{{ g.get('age_from') if g.get('age_from') is not none else '' }}">
+                <td class="num"><a href="{{ url_for('group_page', group_id=g['id']) }}">{{ g['id'] }}</a></td>
+                <td><a href="{{ url_for('group_page', group_id=g['id']) }}">{{ g['name'] }}</a></td>
+                <td>{{ g.get('teacher') or '—' }}</td>
+                <td class="num enroll-cell">
+                  <span class="e-initial">+{{ g.get('_initial') if g.get('_initial') is not none else '—' }}</span>
+                  <span class="e-ok">✓{{ g.get('_approve') if g.get('_approve') is not none else '—' }}</span>
+                  <span class="e-cap">🎓 {{ g.get('_enrolled') if g.get('_enrolled') is not none else '—' }} / {{ g.get('_max') if g.get('_max') is not none else '—' }}</span>
+                </td>
+                <td>{{ g.get('age_from') or '—' }}–{{ g.get('age_to') or '—' }}</td>
+                <td>
+                  <a class="btn btn-sm" href="{{ url_for('group_page', group_id=g['id'], tab='attendance') }}">Посещаемость</a>
+                  <button type="button" class="btn btn-sm contact-btn" data-group="{{ g['id'] }}" data-name="{{ g['name'] }}">Получить контакт. данные</button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {% else %}
+      <div class="empty">Группы не найдены. Проверьте учебный год в настройках входа.</div>
+    {% endfor %}
+  </div>
+
+  <!-- Меню быстрых действий -->
+  <aside class="quick">
+    <div class="cell">
+      <h4>Быстрые действия</h4>
+      <p class="small muted mb">Выберите группу, затем действие:</p>
+      <select class="group-select" id="quickGroup">
+        {% for pid, item in by_program.items() %}
+          <optgroup label="{{ item.program['name'] if item.program and item.program.get('name') else 'Программа #'~pid }}">
+            {% for g in item.groups %}
+              <option value="{{ g['id'] }}" data-tab="attendance">{{ g['name'] }}</option>
+            {% endfor %}
+          </optgroup>
+        {% endfor %}
+      </select>
+
+      <button class="qact" data-tab="attendance">📊 Проставить посещаемость</button>
+      <button class="qact" data-tab="ktp">📋 Заполнить КТП</button>
+      <button class="qact" data-tab="orders">📨 Заявки группы</button>
+      <button class="qact" data-tab="schedule">🗓 Расписание группы</button>
+      <button class="qact" data-tab="accept">✅ Принять на обучение</button>
+    </div>
+
+    <div class="cell">
+      <h4>Отчёты (только чтение)</h4>
+      <p class="small muted mb">Аналитика по всем группам текущего года — безопасно, без изменений:</p>
+      <button type="button" class="btn" onclick="loadReport('by_age')">📊 По возрастам</button>
+      <button type="button" class="btn" onclick="loadReport('by_program')">🧩 По программам</button>
+      <button type="button" class="btn" onclick="loadReport('problem_groups')">⚠ Проблемные группы</button>
+      <button type="button" class="btn" onclick="loadReport('duplicates')">👥 Дубликаты детей</button>
+    </div>
+  </aside>
+</div>
+
+<!-- ============================ МОДАЛКА КОНТАКТНЫХ ДАННЫХ ============================ -->
+<div class="modal-backdrop" id="contactModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;" id="cmTitle">Контактные данные</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <span class="small muted" id="cmCount"></span>
+        <button type="button" class="btn btn-sm" id="cmCopyBtn" onclick="copyContacts()">&#128203; Копировать</button>
+        <button type="button" class="btn btn-sm" onclick="closeContacts()">Закрыть</button>
+      </div>
+    </div>
+    <div class="modal-filters" id="cmFilters">
+      <label><input type="checkbox" value="initial"> Новые</label>
+      <label><input type="checkbox" value="approve"> Одобренные</label>
+      <label><input type="checkbox" value="study"> Приняты</label>
+      <label><input type="checkbox" value="pause"> Пауза</label>
+      <label><input type="checkbox" value="cancel"> Отменённые</label>
+      <label><input type="checkbox" value="deduct"> Отчисленные</label>
+    </div>
+    <div class="modal-body" id="cmBody"></div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ОТЧЁТЫ ============================ -->
+<div class="modal-backdrop" id="reportModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;" id="reportTitle">Отчёт</h3>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button type="button" class="btn btn-sm" id="reportGroupToggle" onclick="toggleReportGroups()">📋 Группы (<span id="reportGroupCount">0</span>/<span id="reportGroupTotal">0</span>)</button>
+        <button type="button" class="btn btn-sm" onclick="copyReport()">&#128203; Копировать</button>
+        <button type="button" class="btn btn-sm" onclick="document.getElementById('reportModal').style.display='none'">Закрыть</button>
+      </div>
+    </div>
+    <div id="reportGroupFilter" class="report-group-filter" style="display:none;">
+      <div class="report-group-head">
+        <span class="small muted">Выберите группы для отчёта:</span>
+        <span>
+          <button type="button" class="btn btn-sm" onclick="selectAllReportGroups(true)">Все</button>
+          <button type="button" class="btn btn-sm" onclick="selectAllReportGroups(false)">Нет</button>
+        </span>
+      </div>
+      {% for pid, item in by_program.items() %}
+        <div class="report-group-program">
+          <div class="report-group-prog-title">{{ item.program['name'] if item.program and item.program.get('name') else 'Программа #'~pid }}</div>
+          {% for g in item.groups %}
+            <label class="report-group-item"><input type="checkbox" class="report-group-cb" value="{{ g['id'] }}" checked> {{ g['name'] }}</label>
+          {% endfor %}
+        </div>
+      {% endfor %}
+    </div>
+    <div id="reportStatusFilter" class="report-status-filter" style="display:none;">
+      <span class="small muted">Статусы заявок:</span>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="initial"> Новые</label>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="approve"> Одобренные</label>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="study"> Зачислены</label>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="pause"> Пауза</label>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="cancel"> Отменены</label>
+      <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="deduct"> Отчислены</label>
+    </div>
+    <div class="modal-body" id="reportBody"><div class="empty">Загрузка…</div></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.querySelectorAll('.qact').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var sel = document.getElementById('quickGroup');
+      var id = sel && sel.value;
+      if (!id) { return; }
+      var tab = this.getAttribute('data-tab');
+      if (tab === 'accept') {
+        // принимаем первую подтверждённую заявку — открываем страницу группы с заявками
+        window.location.href = "/group/" + id + "?tab=orders";
+      } else {
+        window.location.href = "/group/" + id + "?tab=" + tab;
+      }
+    });
+  });
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  var CONTACT_COOKIE = 'contactStateFilter';
+  var DEFAULT_FILTER = ['approve', 'study']; // по умолчанию: одобренные и принятые
+  var STATE_LABELS = {
+    'initial': 'Новая', 'approve': 'Одобрена', 'study': 'Принят(а)',
+    'pause': 'Пауза', 'cancel': 'Отменена', 'deduct': 'Отчислен(а)'
+  };
+  function stateLabel(st) { return STATE_LABELS[st] || st; }
+  var cmContacts = []; // все заявки группы, полученные с сервера
+  var cmVisible = []; // заявки, отображаемые по выбранным чекбоксам
+
+  function getCookie(name) {
+    var m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? decodeURIComponent(m[2]) : null;
+  }
+  function setCookie(name, value) {
+    document.cookie = name + '=' + encodeURIComponent(value) + ';path=/;max-age=31536000';
+  }
+  function stateFilter() {
+    var saved = getCookie(CONTACT_COOKIE);
+    if (saved) {
+      var arr = saved.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (arr.length) return arr;
+    }
+    return DEFAULT_FILTER.slice();
+  }
+  function saveFilter() {
+    var sel = [];
+    document.querySelectorAll('#cmFilters input:checked').forEach(function (c) { sel.push(c.value); });
+    setCookie(CONTACT_COOKIE, sel.join(','));
+  }
+  function applyFilterUI() {
+    var keep = stateFilter();
+    document.querySelectorAll('#cmFilters input').forEach(function (c) {
+      c.checked = keep.indexOf(c.value) !== -1;
+    });
+  }
+  function closeContacts() {
+    document.getElementById('contactModal').style.display = 'none';
+  }
+  function renderContacts() {
+    var body = document.getElementById('cmBody');
+    var keep = [];
+    document.querySelectorAll('#cmFilters input:checked').forEach(function (c) { keep.push(c.value); });
+    cmVisible = cmContacts.filter(function (c) { return keep.indexOf(c.state) !== -1; });
+    var cnt = document.getElementById('cmCount');
+    if (cnt) cnt.textContent = cmVisible.length + ' заявок';
+    if (!cmVisible.length) {
+      body.innerHTML = '<div class="empty">Нет заявок выбранных типов.</div>';
+      return;
+    }
+    var html = '<div class="contacts-list">';
+    cmVisible.forEach(function (c) {
+      var bd = c.kid_birthday ? String(c.kid_birthday).slice(0, 10) : '';
+      html += '<div class="contact-item state-' + esc(c.state) + '">' +
+        '<span class="tag state-tag">' + esc(stateLabel(c.state)) + '</span>' +
+        '<div class="rep">Представитель: <strong>' + esc(c.rep_fio) + '</strong></div>' +
+        '<div class="rep-contacts">' + esc(c.phone) + ' ' + esc(c.email) + '</div>' +
+        '<div class="kid">Ребёнок: <strong>' + esc(c.kid_fio) + '</strong>' +
+          (bd ? ' <span class="muted">' + esc(bd) + '</span>' : '') +
+          (c.kid_age != null ? ' <span class="muted">' + esc(c.kid_age) + ' лет</span>' : '') +
+        '</div>' +
+        '</div>';
+    });
+    html += '</div>';
+    body.innerHTML = html;
+  }
+  function copyContacts() {
+    if (!cmVisible || !cmVisible.length) { return; }
+    var header = ['Представитель', 'Телефон', 'Email', 'Ребёнок', 'Дата рождения', 'Возраст', 'Статус'];
+    var rows = cmVisible.map(function (c) {
+      return [
+        c.rep_fio, c.phone, c.email,
+        c.kid_fio,
+        c.kid_birthday || '',
+        c.kid_age != null ? String(c.kid_age) : '',
+        stateLabel(c.state)
+      ];
+    });
+    var text = [header].concat(rows).map(function (r) { return r.join('\t'); }).join('\n');
+    function done(ok) {
+      var btn = document.getElementById('cmCopyBtn');
+      if (!btn) return;
+      var old = btn.innerHTML;
+      btn.innerHTML = ok ? '&#9989; Скопировано' : '&#10060; Ошибка';
+      setTimeout(function () { btn.innerHTML = old; }, 1500);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { done(true); }).catch(function () { fallbackCopy(text, done); });
+    } else {
+      fallbackCopy(text, done);
+    }
+  }
+  function fallbackCopy(text, done) {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    try { document.execCommand('copy'); done(true); } catch (e) { done(false); }
+    document.body.removeChild(ta);
+  }
+  document.querySelectorAll('.contact-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var gid = btn.getAttribute('data-group');
+      var name = btn.getAttribute('data-name') || ('Группа #' + gid);
+      document.getElementById('cmTitle').textContent = 'Контактные данные — ' + name;
+      applyFilterUI();
+      document.getElementById('cmBody').innerHTML = '<div class="empty">Загрузка…</div>';
+      document.getElementById('contactModal').style.display = 'flex';
+      fetch('/group/' + gid + '/contacts').then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (!res.ok) {
+            document.getElementById('cmBody').innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>';
+            return;
+          }
+          cmContacts = res.contacts || [];
+          renderContacts();
+        })
+        .catch(function () {
+          document.getElementById('cmBody').innerHTML = '<div class="empty">Ошибка сети</div>';
+        });
+    });
+  });
+  // смена чекбоксов: сохранить выбор в куки и перерисовать список
+  document.getElementById('cmFilters').addEventListener('change', function () {
+    saveFilter();
+    renderContacts();
+  });
+  document.getElementById('contactModal').addEventListener('click', function (e) {
+    if (e.target === this) closeContacts();
+  });
+
+  // ---------------- Отчёты (только чтение) ----------------
+  var REPORT_TITLE = '';
+  var REPORT_TSV = '';
+  var REPORT_TITLES = { 'by_age': 'По возрастам', 'by_program': 'По программам', 'problem_groups': 'Проблемные группы', 'duplicates': 'Дубликаты детей' };
+  var REPORT_GROUPS_COOKIE = 'reportGroups';
+  var REPORT_STATUS_COOKIE = 'reportStatuses';
+  var STATUS_LABELS = { 'initial': 'Новая', 'approve': 'Одобрена', 'study': 'Зачислен', 'pause': 'Пауза', 'cancel': 'Отменена', 'deduct': 'Отчислен' };
+  var STATUS_TAG_CLASS = { 'initial': 'tag-accent', 'approve': 'tag-warn', 'study': 'tag-ok', 'pause': 'tag-warn', 'cancel': 'tag-muted', 'deduct': 'tag-danger' };
+
+  function getSelectedReportGroups() {
+    var saved = getCookie(REPORT_GROUPS_COOKIE);
+    if (saved) {
+      var ids = saved.split(',').filter(Boolean);
+      document.querySelectorAll('.report-group-cb').forEach(function (cb) {
+        cb.checked = ids.indexOf(cb.value) !== -1;
+      });
+      return ids;
+    }
+    return Array.from(document.querySelectorAll('.report-group-cb')).map(function (cb) { return cb.value; });
+  }
+  function saveReportGroups() {
+    var sel = [];
+    document.querySelectorAll('.report-group-cb:checked').forEach(function (cb) { sel.push(cb.value); });
+    setCookie(REPORT_GROUPS_COOKIE, sel.join(','));
+    updateReportGroupCount();
+  }
+  function updateReportGroupCount() {
+    var checked = document.querySelectorAll('.report-group-cb:checked').length;
+    var total = document.querySelectorAll('.report-group-cb').length;
+    var el = document.getElementById('reportGroupCount');
+    var elTotal = document.getElementById('reportGroupTotal');
+    if (el) el.textContent = checked;
+    if (elTotal) elTotal.textContent = total;
+  }
+  function selectAllReportGroups(select) {
+    document.querySelectorAll('.report-group-cb').forEach(function (cb) { cb.checked = select; });
+    saveReportGroups();
+  }
+  function toggleReportGroups() {
+    var panel = document.getElementById('reportGroupFilter');
+    var visible = panel.style.display !== 'none';
+    panel.style.display = visible ? 'none' : 'block';
+  }
+
+  // ——— статусы фильтра для дубликатов ———
+  function getStatusFilter() {
+    var saved = getCookie(REPORT_STATUS_COOKIE);
+    if (saved) {
+      var arr = saved.split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+      if (arr.length) return arr;
+    }
+    return ['initial', 'approve', 'study'];
+  }
+  function saveStatusFilter() {
+    var sel = [];
+    document.querySelectorAll('.report-status-cb:checked').forEach(function (c) { sel.push(c.value); });
+    setCookie(REPORT_STATUS_COOKIE, sel.join(','));
+  }
+  function applyStatusFilterUI() {
+    var keep = getStatusFilter();
+    document.querySelectorAll('.report-status-cb').forEach(function (c) {
+      c.checked = keep.indexOf(c.value) !== -1;
+    });
+  }
+
+  function loadReport(kind) {
+    REPORT_TITLE = REPORT_TITLES[kind] || 'Отчёт';
+    document.getElementById('reportTitle').textContent = REPORT_TITLE;
+    document.getElementById('reportBody').innerHTML = '<div class="empty">Загрузка…</div>';
+    document.getElementById('reportModal').style.display = 'flex';
+    // показать/скрыть фильтр статусов
+    var statusPanel = document.getElementById('reportStatusFilter');
+    if (statusPanel) {
+      statusPanel.style.display = kind === 'duplicates' ? 'flex' : 'none';
+      if (kind === 'duplicates') applyStatusFilterUI();
+    }
+    var groupIds = getSelectedReportGroups();
+    var totalCbs = document.querySelectorAll('.report-group-cb').length;
+    var extra = kind === 'problem_groups' ? '&min=10' : '';
+    if (groupIds.length && groupIds.length < totalCbs) {
+      extra += '&group_ids=' + groupIds.join(',');
+    }
+    if (kind === 'duplicates') {
+      var statuses = getStatusFilter();
+      if (statuses.length) extra += '&statuses=' + statuses.join(',');
+    }
+    fetch('/api/reports?kind=' + kind + extra).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { document.getElementById('reportBody').innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>'; return; }
+      renderReport(res);
+    }).catch(function () { document.getElementById('reportBody').innerHTML = '<div class="empty">Ошибка сети</div>'; });
+  }
+  function renderReport(res) {
+    var rows = res.rows || [];
+    var html = '';
+    var tsv = '';
+    if (res.kind === 'by_age') {
+      html = '<table class="report-table"><thead><tr><th>Возраст</th><th class="num">Детей</th></tr></thead><tbody>';
+      tsv = 'Возраст\tДетей\n';
+      rows.forEach(function (r) { html += '<tr><td>' + esc(r.age) + ' лет</td><td class="num">' + esc(r.count) + '</td></tr>'; tsv += r.age + '\t' + r.count + '\n'; });
+      html += '</tbody></table><div class="small muted mt">Всего: ' + (res.total || 0) + '</div>';
+    } else if (res.kind === 'by_program') {
+      html = '<table class="report-table"><thead><tr><th>Программа</th><th class="num">Детей</th></tr></thead><tbody>';
+      tsv = 'Программа\tДетей\n';
+      rows.forEach(function (r) { html += '<tr><td>' + esc(r.program) + '</td><td class="num">' + esc(r.count) + '</td></tr>'; tsv += r.program + '\t' + r.count + '\n'; });
+      html += '</tbody></table><div class="small muted mt">Всего: ' + (res.total || 0) + '</div>';
+    } else if (res.kind === 'problem_groups') {
+      html = '<div class="small muted mb">Группы с числом детей меньше ' + esc(res.min) + ':</div><table class="report-table"><thead><tr><th>Программа</th><th>Группа</th><th class="num">Детей</th></tr></thead><tbody>';
+      tsv = 'Программа\tГруппа\tДетей\n';
+      rows.forEach(function (r) { html += '<tr><td>' + esc(r.program) + '</td><td>' + esc(r.name) + ' <span class="muted small">#' + esc(r.id) + '</span></td><td class="num">' + esc(r.size) + '</td></tr>'; tsv += r.program + '\t' + r.name + '\t' + r.size + '\n'; });
+      html += '</tbody></table>';
+      if (!rows.length) html = '<div class="empty">Нет групп меньше заданного числа детей</div>';
+    } else if (res.kind === 'duplicates') {
+      html = '';
+      var tsv = 'Ребёнок\tГрупп\tГруппы\n';
+      rows.forEach(function (r) {
+        var gs = (r.groups || []).map(function (g) {
+          var stCls = STATUS_TAG_CLASS[g.status] || 'tag-muted';
+          var stLbl = STATUS_LABELS[g.status] || g.status;
+          return esc(g.group) + ' <span class="tag ' + stCls + '" style="font-size:11px;padding:1px 7px;">' + esc(stLbl) + '</span>';
+        }).join('  ');
+        var gsPlain = (r.groups || []).map(function (g) { return g.group + ' [' + (STATUS_LABELS[g.status] || g.status) + ']'; }).join('; ');
+        html += '<div class="contact-item"><span class="tag state-cancel">' + esc(r.count) + ' гр.</span><div class="rep"><strong>' + esc(r.name) + '</strong></div><div class="kid">' + gs + '</div></div>';
+        tsv += r.name + '\t' + r.count + '\t' + gsPlain + '\n';
+      });
+      html = '<div class="contacts-list">' + html + '</div><div class="small muted mt">Найдено: ' + (res.total || 0) + '</div>';
+    }
+    REPORT_TSV = tsv;
+    document.getElementById('reportBody').innerHTML = html;
+  }
+  function copyReport() {
+    if (!REPORT_TSV) return;
+    var tsv = REPORT_TITLE + '\n' + REPORT_TSV;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(tsv).then(function () { }, function () { });
+    } else {
+      var ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta);
+    }
+  }
+  document.getElementById('reportModal').addEventListener('click', function (e) {
+    if (e.target === this) this.style.display = 'none';
+  });
+  // группа-фильтр отчётов: сохранить выбор в куки, при смене — перезагрузить отчёт
+  document.getElementById('reportModal').addEventListener('change', function (e) {
+    if (e.target && e.target.classList && e.target.classList.contains('report-group-cb')) {
+      saveReportGroups();
+      var title = document.getElementById('reportTitle').textContent || '';
+      var kind = null;
+      for (var k in REPORT_TITLES) {
+        if (REPORT_TITLES[k] === title) { kind = k; break; }
+      }
+      if (kind) loadReport(kind);
+    }
+    if (e.target && e.target.classList && e.target.classList.contains('report-status-cb')) {
+      saveStatusFilter();
+      var title2 = document.getElementById('reportTitle').textContent || '';
+      var kind2 = null;
+      for (var k2 in REPORT_TITLES) {
+        if (REPORT_TITLES[k2] === title2) { kind2 = k2; break; }
+      }
+      if (kind2) loadReport(kind2);
+    }
+  });
+  // восстановить сохранённый выбор групп и счётчик
+  getSelectedReportGroups();
+  updateReportGroupCount();
+  applyStatusFilterUI();
+  // ============================ СОРТИРОВКА ТАБЛИЦ ГРУПП ============================
+  function srtVal(row, key) {
+    var v = row.getAttribute('data-' + key);
+    if (key === 'id' || key === 'count') return parseFloat(v) || 0;
+    return (v || '').toLowerCase();
+  }
+  function srtCompare(key, dir) {
+    return function (a, b) {
+      var x = srtVal(a, key), y = srtVal(b, key);
+      var res = (x > y) ? 1 : (x < y ? -1 : 0);
+      return dir === 'asc' ? res : -res;
+    };
+  }
+  function sortTable(table, key, dir) {
+    var tbody = table.querySelector('tbody');
+    var rows = Array.prototype.slice.call(tbody.querySelectorAll('tr'));
+    rows.sort(srtCompare(key, dir));
+    rows.forEach(function (tr) { tbody.appendChild(tr); });
+    var ths = table.querySelectorAll('th.sortable');
+    ths.forEach(function (th) {
+      th.classList.remove('srt-asc', 'srt-desc');
+      if (th.getAttribute('data-sort') === key) th.classList.add(dir === 'asc' ? 'srt-asc' : 'srt-desc');
+    });
+  }
+  document.querySelectorAll('table.sortable-table').forEach(function (table) {
+    var state = {};               // {key: 'asc'|'desc'}
+    table.querySelectorAll('th.sortable').forEach(function (th) {
+      th.style.cursor = 'pointer';
+      th.addEventListener('click', function () {
+        var key = th.getAttribute('data-sort');
+        var dir = state[key] === 'asc' ? 'desc' : 'asc';   // первый клик — asc
+        state = {};
+        state[key] = dir;
+        sortTable(table, key, dir);
+      });
+    });
+    sortTable(table, 'id', 'asc');   // по умолчанию — ID по возрастанию
+  });
+</script>
+{% endblock %}

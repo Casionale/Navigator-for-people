@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Navigator API{% endblock %}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+</head>
+<body>
+{% if current_user %}
+<nav class="nav">
+  <div class="nav-brand"><span class="dot"></span> Navigator API</div>
+  <div class="nav-links">
+    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Главная</a>
+    <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
+    <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">Посещаемость</a>
+    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки</a>
+    <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
+  </div>
+  <div class="nav-spacer"></div>
+  <div class="nav-user">{{ current_user }}</div>
+  <label class="small muted" for="yearSelect">год</label>
+  <select id="yearSelect" class="btn-theme" title="Учебный год">
+    {% for y in academic_years %}
+      <option value="{{ y['id'] }}" {{ 'selected' if current_year == y['id']|string }}>{{ y['id'] }}</option>
+    {% endfor %}
+  </select>
+  <div class="theme-menu" id="themeMenu">
+    <button type="button" class="theme-btn" id="themeBtn">🎨 Тема</button>
+    <div class="theme-list" id="themeList"></div>
+  </div>
+  <a class="btn btn-sm" href="{{ url_for('logout') }}">Выход</a>
+</nav>
+{% endif %}
+
+<div class="wrap">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  {% block content %}{% endblock %}
+</div>
+
+<script src="{{ url_for('static', filename='js/theme.js') }}?v=3"></script>
+<script>
+  // Смена учебного года в навбаре — обновляет данные страницы автоматически
+  document.addEventListener('DOMContentLoaded', function () {
+    var sel = document.getElementById('yearSelect');
+    if (!sel) return;
+    sel.addEventListener('change', function () {
+      var year = sel.value;
+      var prev = sel.dataset.prev || '';
+      if (year === prev) return;
+      sel.disabled = true;
+      fetch('/set_year', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'year=' + encodeURIComponent(year)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        sel.disabled = false;
+        if (res.ok) {
+          // перезагрузим текущую страницу — данные обновятся под новый год
+          window.location.reload();
+        } else {
+          alert(res.error || 'Не удалось сменить год');
+        }
+      }).catch(function () {
+        sel.disabled = false;
+        alert('Ошибка сети при смене года');
+      });
+    });
+  });
+</script>
+
+<!-- ============================ ГЛОБАЛЬНЫЙ ПОИСК РЕБЁНКА ============================ -->
+<div class="modal-backdrop" id="kidSearchModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Поиск ребёнка</h3>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('kidSearchModal').style.display='none'">Закрыть</button>
+    </div>
+    <div class="modal-filters" style="padding:10px;">
+      <input type="text" id="kidSearchInput" placeholder="ФИО ребёнка…" style="width:100%;" autocomplete="off">
+    </div>
+    <div class="modal-body" id="kidSearchResults"><div class="empty">Введите ФИО для поиска</div></div>
+  </div>
+</div>
+<script>
+  var KS_GROUP = null;
+  var KS_SOURCE = 'nav'; // 'nav' | 'preview'
+  function openKidSearch() {
+    KS_SOURCE = 'nav';
+    document.getElementById('kidSearchModal').style.display = 'flex';
+    document.getElementById('kidSearchResults').innerHTML = '<div class="empty">Введите ФИО для поиска</div>';
+  }
+  function openKidSearchForGroup(groupId) {
+    KS_GROUP = groupId;
+    KS_SOURCE = 'preview';
+    openKidSearch();
+    document.getElementById('kidSearchInput').focus();
+  }
+  document.getElementById('kidSearchInput').addEventListener('input', function () {
+    var q = this.value.trim();
+    var box = document.getElementById('kidSearchResults');
+    if (q.length < 3) { box.innerHTML = '<div class="empty">Введите минимум 3 символа</div>'; return; }
+    fetch('/search_kid?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (data) {
+      if (!data || !data.length) { box.innerHTML = '<div class="empty">Никого не найдено</div>'; return; }
+      var html = '<div class="contacts-list">';
+      data.forEach(function (k) {
+        html += '<div class="contact-item kid-result">' +
+          '<div class="rep"><strong>' + esc2(k.fio || '') + '</strong></div>' +
+          '<div class="rep-contacts">' + esc2(k.birthday || '') + ' · ' + esc2(k.approve_org_caption || '') + '</div>' +
+          '<div style="margin-top:6px;">' + (KS_SOURCE === 'preview' ?
+            '<button class="btn btn-sm btn-primary" data-use="1" data-kid="' + esc2(k.id) + '" data-fio="' + esc2(k.fio) + '" data-su="' + esc2(k.site_user_id || '') + '">Выбрать → заявка</button>'
+            : '<span class="small muted">id ' + esc2(k.id) + '</span>') +
+          '</div></div>';
+      });
+      box.innerHTML = html;
+      box.querySelectorAll('[data-use="1"]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          document.getElementById('kidSearchModal').style.display = 'none';
+          if (window.fillOrderPreview) {
+            window.fillOrderPreview(KS_GROUP, b.getAttribute('data-kid'), b.getAttribute('data-fio'), b.getAttribute('data-su'));
+          }
+        });
+      });
+    }).catch(function () { box.innerHTML = '<div class="empty">Ошибка сети</div>'; });
+  });
+  function esc2(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Заявки — Navigator API{% endblock %}
+{% block content %}
+<h1 style="margin-top:0;">Заявки</h1>
+
+<div class="panel mb">
+  <form method="get" action="{{ url_for('orders') }}" class="row">
+    <div class="field" style="margin:0;">
+      <label>Статус</label>
+      <select name="state">
+        <option value="">Все</option>
+        <option value="initial" {{ 'selected' if cur_state=='initial' }}>Новая (Черновик)</option>
+        <option value="pause" {{ 'selected' if cur_state=='pause' }}>Пауза</option>
+        <option value="approve" {{ 'selected' if cur_state=='approve' }}>Подтверждена</option>
+        <option value="study" {{ 'selected' if cur_state=='study' }}>Зачислен</option>
+        <option value="deduct" {{ 'selected' if cur_state=='deduct' }}>Отчислен</option>
+        <option value="cancel" {{ 'selected' if cur_state=='cancel' }}>Отменена</option>
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label>Учебный год</label>
+      <select id="ordersYear" title="Синхронизируется с годом в навбаре">
+        {% for y in academic_years %}
+          <option value="{{ y['id'] }}" {{ 'selected' if cur_year == y['id']|string }}>{{ y['id'] }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="field" style="margin:0;">
+      <label>На странице</label>
+      <select name="limit">
+        {% for n in [50, 100, 200, 500] %}
+          <option value="{{ n }}" {{ 'selected' if cur_limit==n }}>{{ n }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Применить</button>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Результат <span class="badge">{{ orders|length }}</span>
+    <span class="small muted">— кликните по ребёнку, чтобы раскрыть информацию и действия по заявке прямо в списке.</span>
+  </div>
+  <div class="attendance-grid">
+    <table>
+      <thead>
+        <tr><th>Ребёнок</th><th>Группа</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th></tr>
+      </thead>
+      <tbody id="ordersTbody">
+        {% for o in orders %}
+        {% set st = o.get('state') or o.get('state_grid') %}
+        <tr class="order-row" data-id="{{ o.get('id') }}" style="cursor:pointer;">
+          <td><span class="order-child">{{ o.get('kid_last_name','') }} {{ o.get('kid_first_name','') }} {{ o.get('kid_patro_name','') }}</span></td>
+          <td>{% if o.get('group_id') %}<a href="{{ url_for('group_page', group_id=o['group_id'], tab='orders') }}" onclick="event.stopPropagation();">Группа #{{ o['group_id'] }}</a>{% else %}—{% endif %}</td>
+          <td>
+            {% if st == 'approve' %}<span class="tag tag-warn">Подтверждена</span>
+            {% elif st == 'study' %}<span class="tag tag-ok">Зачислен</span>
+            {% elif st == 'initial' %}<span class="tag tag-accent">Новая</span>
+            {% elif st == 'deduct' %}<span class="tag tag-danger">Отчислен</span>
+            {% elif st == 'cancel' %}<span class="tag tag-muted">Отменена</span>
+            {% else %}<span class="tag tag-muted">{{ st }}</span>{% endif %}
+          </td>
+          <td>{{ o.get('fact_academic_year_id') or o.get('academic_year_id') }}</td>
+          <td>{{ (o.get('created_ts') or '')[:10] }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not orders %}<div class="empty">По заданным фильтрам заявок нет.</div>{% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+function stateTagHtml(st) {
+  var m = {
+    'approve': ['tag-warn', 'Подтверждена'],
+    'study': ['tag-ok', 'Зачислен'],
+    'initial': ['tag-accent', 'Новая'],
+    'deduct': ['tag-danger', 'Отчислен'],
+    'cancel': ['tag-muted', 'Отменена']
+  };
+  var t = m[st] || ['tag-muted', esc(st)];
+  return '<span class="tag ' + t[0] + '">' + t[1] + '</span>';
+}
+function fieldRow(label, value) {
+  if (value === null || value === undefined || value === '') return '';
+  return '<div class="field" style="margin:0;min-width:160px;"><label>' + esc(label) + '</label>' +
+         '<span>' + esc(value) + '</span></div>';
+}
+function msg(html, cls) {
+  var el = document.getElementById('odMsg');
+  el.className = 'mt ' + (cls || '');
+  el.innerHTML = html;
+}
+
+var currentOrderId = null;
+var currentRow = null;
+var odRow = null; // вложенная <tr> с деталями
+
+function removeOdRow() {
+  if (odRow && odRow.parentNode) { odRow.parentNode.removeChild(odRow); }
+  odRow = null;
+  currentOrderId = null;
+  currentRow = null;
+  if (odTbody) { odTbody.classList.remove('row-open'); }
+}
+var odTbody = null;
+
+function openOrder(tr, orderId) {
+  // если раскрыт этот же ряд — закрываем
+  if (currentOrderId === String(orderId)) { removeOdRow(); return; }
+  if (odRow && odRow.parentNode) { odRow.parentNode.removeChild(odRow); }
+
+  currentRow = tr;
+  currentOrderId = String(orderId);
+
+  var od = odTbody.querySelectorAll('.order-row.selected');
+  od.forEach(function (x) { x.classList.remove('selected'); });
+  tr.classList.add('selected');
+
+  odRow = document.createElement('tr');
+  odRow.className = 'detail-row';
+  odRow.innerHTML = '<td colspan="5"><div class="od-loading">Загрузка заявки #' +
+                    esc(orderId) + '…</div></td>';
+  tr.after(odRow);
+  odTbody.classList.add('row-open');
+
+  fetch('/orders/' + orderId + '/detail').then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (!odRow || !odRow.parentNode) return;
+      if (!res.ok) {
+        odRow.innerHTML = '<td colspan="5"><div class="od-msg err">' +
+          esc(res.error || 'Не удалось загрузить') + '</div></td>';
+        return;
+      }
+      showOrder(res);
+    })
+    .catch(function () {
+      if (odRow && odRow.parentNode) {
+        odRow.innerHTML = '<td colspan="5"><div class="od-msg err">Ошибка сети</div></td>';
+      }
+    });
+}
+
+function showOrder(res) {
+  var o = res.order || {};
+  var st = res.state || '';
+  var info = [];
+  info.push(fieldRow('Ребёнок', o.kid_fio));
+  info.push(fieldRow('Дата рождения', (o.kid_birthday || '').slice ? String(o.kid_birthday).slice(0,10) : ''));
+  info.push(fieldRow('Возраст', o.kid_age));
+  // полные контакты родителя из siteuser (без маски); фолбэк на данные заявки
+  var su = res.site_user || {};
+  if (su.fio) { info.push(fieldRow('Родитель', su.fio)); }
+  else if (o.user_fio) { info.push(fieldRow('Родитель', o.user_fio)); }
+  var fullEmail = su.email || o.user_email || '';
+  var fullPhone = su.phone || o.user_phone || '';
+  info.push(fieldRow('E-mail', fullEmail));
+  info.push(fieldRow('Телефон', fullPhone));
+  info.push(fieldRow('Муниципалитет', o.municipality_name));
+  info.push(fieldRow('Источник', o.source));
+  info.push(fieldRow('Группа', o.fact_group_id || o.group_id));
+  info.push(fieldRow('Программа (event)', o.event_id));
+  info.push(fieldRow('Уч. год', o.academic_year || o.academic_year_id));
+  info.push(fieldRow('Факт. год', o.fact_academic_year || o.fact_academic_year_id));
+  info.push(fieldRow('Создана', (o.created_ts || '').slice ? String(o.created_ts).slice(0,16) : ''));
+  info.push(fieldRow('Дата зачисления', (o.date_enroll || '').slice ? String(o.date_enroll).slice(0,10) : ''));
+  info.push(fieldRow('Дата отчисления', (o.date_deduct || '').slice ? String(o.date_deduct).slice(0,10) : ''));
+  info.push(fieldRow('Ребёнок подтверждён', o.kid_is_approved === true ? 'да' : (o.kid_is_approved === false ? 'нет' : '')));
+  info.push(fieldRow('Сайт-пользователь', o.site_user_id));
+  var html = '<td colspan="5">' +
+    '<div class="od-head">Заявка #' + esc(o.id) + ' — ' + esc(o.kid_fio || 'ребёнок') + ' ' +
+      stateTagHtml(st) +
+      ' <button type="button" class="btn btn-sm" onclick="removeOdRow()">Закрыть</button></div>' +
+    '<div class="row">' + info.join('') + '</div>' +
+    '<div class="od-actions">' + buildActions(o, st, res.cancel_reasons || []) + '</div>' +
+    '<div id="odMsg" class="od-msg"></div>' +
+    '</td>';
+  odRow.innerHTML = html;
+}
+
+function buildActions(o, st, reasons) {
+  var html = '';
+  function reasonSel() {
+    var opts = reasons.map(function (r) {
+      return '<option value="' + esc(r.id) + '">' + esc(r.name) + '</option>';
+    }).join('');
+    return '<div class="field" style="margin:0;min-width:200px;"><label>Причина</label>' +
+           '<select id="odReason">' + opts + '</select></div>' +
+           '<div class="field" style="margin:0;min-width:200px;"><label>Комментарий</label>' +
+           '<input type="text" id="odReasonComment" placeholder="комментарий (необязательно)"></div>';
+  }
+  if (st === 'initial') {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+      '<button class="btn btn-ok" onclick="actApprove()">Подтвердить</button>' +
+      reasonSel() +
+      '<button class="btn btn-danger" onclick="actCancel()">Отменить</button>' +
+      '</div>';
+  } else if (st === 'approve') {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">' +
+      '<div class="field" style="margin:0;"><label>Дата приказа</label><input type="date" id="odSign" required></div>' +
+      '<div class="field" style="margin:0;"><label>Дата начала</label><input type="date" id="odStart" required></div>' +
+      '<div class="field" style="margin:0;"><label>№ приказа</label><input type="text" id="odDecree" required></div>' +
+      '<button class="btn btn-ok" onclick="actAccept()">Принять на обучение</button>' +
+      reasonSel() +
+      '<button class="btn btn-danger" onclick="actCancel()">Отменить</button>' +
+      '</div>';
+  } else {
+    html += '<span class="small muted">Для статуса «' + esc(st) + '» действия недоступны.</span>';
+  }
+  return html;
+}
+
+function doPost(url, body, okMsg) {
+  msg('Сохранение…');
+  fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body
+  }).then(function (r) { return r.json(); }).then(function (res) {
+    if (res.ok) {
+      msg('<span class="tag tag-ok">' + esc(okMsg) + '</span>');
+      // перезагрузим список, чтобы отразить новый статус
+      setTimeout(function () { location.reload(); }, 700);
+    } else {
+      msg('<span class="tag tag-danger">' + esc(res.error || 'Ошибка') + '</span>');
+    }
+  }).catch(function () { msg('<span class="tag tag-danger">Ошибка сети</span>'); });
+}
+
+function actApprove() {
+  doPost('/orders/' + currentOrderId + '/approve', '', 'Заявка подтверждена');
+}
+function actCancel() {
+  var rid = document.getElementById('odReason').value;
+  var rc = document.getElementById('odReasonComment').value;
+  doPost('/orders/' + currentOrderId + '/cancel',
+    'reason_id=' + encodeURIComponent(rid) + '&reason_comment=' + encodeURIComponent(rc),
+    'Заявка отменена');
+}
+function actAccept() {
+  var sign = document.getElementById('odSign').value;
+  var start = document.getElementById('odStart').value;
+  var dec = document.getElementById('odDecree').value;
+  doPost('/orders/' + currentOrderId + '/accept',
+    'date_signing=' + encodeURIComponent(sign) + '&date_start=' + encodeURIComponent(start) +
+    '&decree_number=' + encodeURIComponent(dec),
+    'Заявка принята на обучение');
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+  odTbody = document.querySelector('#ordersTbody') || document.querySelector('tbody');
+  document.querySelectorAll('.order-row').forEach(function (tr) {
+    tr.addEventListener('click', function () {
+      openOrder(tr, tr.getAttribute('data-id'));
+    });
+  });
+  var sel = document.getElementById('ordersYear');
+  if (sel) {
+    sel.addEventListener('change', function () {
+      var year = sel.value;
+      if (year === sel.dataset.prev) return;
+      sel.disabled = true;
+      fetch('/set_year', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: 'year=' + encodeURIComponent(year)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        sel.disabled = false;
+        if (res.ok) {
+          var p = new URLSearchParams(window.location.search);
+          p.delete('year');
+          window.location.href = '/orders?' + p.toString();
+        } else {
+          alert(res.error || 'Не удалось сменить год');
+        }
+      }).catch(function () {
+        sel.disabled = false;
+        alert('Ошибка сети при смене года');
+      });
+    });
+  }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Программы — Navigator API{% endblock %}
+{% block content %}
+<div class="grid-main">
+  <div>
+    <h1 style="margin-top:0;">Программы</h1>
+    <div class="panel">
+      {% if programs %}
+      <table>
+        <thead>
+          <tr><th>Название</th><th>ID</th><th>Групп</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for p in programs %}
+          <tr>
+            <td>
+              {% if focus and groups is defined %}
+                <strong>{{ p.get('name') }}</strong>
+              {% else %}
+                <a href="{{ url_for('program_page', event_id=p['id']) }}">{{ p.get('name') }}</a>
+              {% endif %}
+            </td>
+            <td class="num">{{ p.get('id') }}</td>
+            <td class="num">{{ groups|length if focus and groups is defined and p.get('id')==focus else '—' }}</td>
+            <td><a class="btn btn-sm" href="{{ url_for('program_page', event_id=p['id']) }}">Открыть</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <div class="empty">Программ не найдено.</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <aside class="quick">
+    <div class="cell">
+      <h4>Действия с программами</h4>
+      <p class="small muted mb">Создание/редактирование программ и настройки появятся в следующих версиях.</p>
+      <select class="group-select" id="progSelect">
+        {% for p in programs %}
+          <option value="{{ p['id'] }}">{{ p.get('name') }}</option>
+        {% endfor %}
+      </select>
+      <button class="qact" id="btnOpenProgram">→ Открыть страницу программы</button>
+    </div>
+  </aside>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  document.getElementById('btnOpenProgram').addEventListener('click', function () {
+    var id = document.getElementById('progSelect').value;
+    if (id) { window.location.href = "/programs/" + id; }
+  });
+</script>
+{% endblock %}

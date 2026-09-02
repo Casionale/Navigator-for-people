@@ -1,0 +1,17 @@
+login.ini
+__pycache__/
+*.pyc
+*.pyo
+*.spec
+build/
+dist/
+output/
+download_files/
+unzip_files/
+firefox_api_capturer/
+.idea/
+*.csv
+*.zip
+*.7z
+app.js
+sched_info.md

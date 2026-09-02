@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Посещаемость — Navigator API{% endblock %}
+{% block content %}
+<h1 style="margin-top:0;">Посещаемость — выберите группу</h1>
+
+{% for pid, item in by_program.items() %}
+  <div class="panel program-group mb">
+    <div class="program-head">
+      <span class="chev">▶</span>
+      <strong>{{ item.program['name'] if item.program and item.program.get('name') else 'Программа #'~pid }}</strong>
+      <span class="badge">{{ item.groups|length }}</span>
+    </div>
+    <div class="program-body">
+      <table>
+        <thead><tr><th>Группа</th><th>Преподаватель</th><th>Учащихся</th><th></th></tr></thead>
+        <tbody>
+          {% for g in item.groups %}
+          <tr>
+            <td><a href="{{ url_for('group_page', group_id=g['id'], tab='attendance') }}">{{ g['name'] }}</a></td>
+            <td>{{ g.get('teacher') or '—' }}</td>
+            <td class="num enroll-cell">
+              <span class="e-initial">+{{ g.get('_initial') if g.get('_initial') is not none else '—' }}</span>
+              <span class="e-ok">✓{{ g.get('_approve') if g.get('_approve') is not none else '—' }}</span>
+              <span class="e-cap">🎓 {{ g.get('_enrolled') if g.get('_enrolled') is not none else '—' }} / {{ g.get('_max') if g.get('_max') is not none else '—' }}</span>
+            </td>
+            <td><a class="btn btn-sm btn-primary" href="{{ url_for('group_page', group_id=g['id'], tab='attendance') }}">Открыть</a></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+{% else %}
+  <div class="empty">Группы не найдены.</div>
+{% endfor %}
+{% endblock %}

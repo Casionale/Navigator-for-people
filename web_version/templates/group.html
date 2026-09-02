@@ -1,0 +1,779 @@
+{% extends "base.html" %}
+{% set WD = {1:'Пн',2:'Вт',3:'Ср',4:'Чт',5:'Пт',6:'Сб',7:'Вс'} %}
+{% block title %}{{ group.get('name') or 'Группа' }}{% endblock %}
+{% block content %}
+
+<div class="panel mb" style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+  <div>
+    <h1 style="margin:0;font-size:20px;">{{ group.get('name') or 'Группа' }} <span class="muted small">#{{ group.get('id') }}</span></h1>
+    <div class="small muted">
+      {{ group.get('event_name') or ('Программа #' ~ group.get('event_id')) if group.get('event_id') else '' }}
+      · Преподаватель: {{ group.get('teacher') or '—' }}
+      · Учащихся: {{ group.get('size') or '—' }}
+      · Возраст: {{ group.get('age_from') or '—' }}–{{ group.get('age_to') or '—' }}
+    </div>
+  </div>
+  <button type="button" class="btn btn-sm" onclick="openRenameModal()">✏️ Переименовать</button>
+</div>
+
+<!-- ============================ НАСТРОЙКИ ГРУППЫ ============================ -->
+<div class="panel mb">
+  <div class="panel-title">Настройки группы</div>
+  <div class="row">
+    <div class="field" style="margin:0;min-width:140px;"><label>Тип</label>
+      <span>{{ dictionaries.type.get(group.get('type')|string, 'Группа') if group.get('type') is not none else '—' }}</span>
+    </div>
+    <div class="field" style="margin:0;min-width:150px;"><label>Наполняемость</label>
+      <span>{{ group.get('size_min') or '—' }} – {{ group.get('size') or '—' }}</span>
+    </div>
+    <div class="field" style="margin:0;min-width:120px;"><label>Часов в год</label>
+      <span>{{ group.get('hours_year') or '—' }}{% if group.get('hours_year_scheduled') is not none %} (по расп.: {{ group.get('hours_year_scheduled') }}){% endif %}</span>
+    </div>
+    <div class="field" style="margin:0;min-width:170px;"><label>Период занятий</label>
+      <span>{{ (group.get('date_start') or '—')[:10] }} – {{ (group.get('date_end') or '—')[:10] }}</span>
+    </div>
+    <div class="field" style="margin:0;min-width:170px;"><label>Источник финансирования</label>
+      {% set fs = (group.get('financing_sources') or [])[0] if (group.get('financing_sources') or []) else None %}
+      <span>
+        {% if fs %}
+          {{ dictionaries.financing_source.get(fs.get('financing_source')|string, fs.get('financing_source')) }}
+          {% if fs.get('budget_type_id') is not none %} · {{ dictionaries.budget_type.get(fs.get('budget_type_id')|string, fs.get('budget_type_id')) }}{% endif %}
+          {% if fs.get('offbudget_type_id') is not none %} · {{ dictionaries.offbudget_type.get(fs.get('offbudget_type_id')|string, fs.get('offbudget_type_id')) }}{% endif %}
+        {% else %}—{% endif %}
+      </span>
+    </div>
+    <div class="field" style="margin:0;min-width:130px;"><label>Спорт. этап</label>
+      <span>{{ dictionaries.sport_stage.get(group.get('sport_stage_id')|string, '—') if group.get('sport_stage_id') is not none else '—' }}</span>
+    </div>
+    <div class="field" style="margin:0;min-width:120px;"><label>Запись (год)</label>
+      <span>
+        {% if group.get('available_order_current_year') %}<span class="tag tag-ok">открыта</span>
+        {% elif group.get('is_locked') %}<span class="tag tag-muted">закрыта</span>
+        {% else %}<span class="tag tag-warn">—</span>{% endif %}
+      </span>
+    </div>
+    <div class="field" style="margin:0;min-width:90px;"><label>ПФДОД</label>
+      <span>{{ 'да' if group.get('is_pfdod') else 'нет' }}</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel mb">
+  <div class="panel-title">Функции группы</div>
+  <div class="func-grid">
+    <button type="button" class="btn" onclick="openMembersModal()">📋 Список детей</button>
+    <button type="button" class="btn" onclick="openKidSearchForGroup('{{ group['id'] }}')">➕ Добавить ребёнка (заявка)</button>
+    <button type="button" class="btn" onclick="openCloseDayModal()">🗓 Закрыть день (посещ.+КТП)</button>
+  </div>
+  <div class="small muted mt">Кнопки «Добавить ребёнка» и «Закрыть день» показывают <b>предпросмотр</b> запроса —<br>ничего в навигатор не отправляется.</div>
+</div>
+
+<div class="tabs">
+  <a class="tab {{ 'active' if tab=='attendance' }}" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=month) }}">Посещаемость</a>
+  <a class="tab {{ 'active' if tab=='ktp' }}" href="{{ url_for('group_page', group_id=group['id'], tab='ktp', month=month) }}">КТП (занятия)</a>
+  <a class="tab {{ 'active' if tab=='orders' }}" href="{{ url_for('group_page', group_id=group['id'], tab='orders') }}">Заявки <span class="badge">{{ orders|length }}</span></a>
+  <a class="tab {{ 'active' if tab=='schedule' }}" href="{{ url_for('group_page', group_id=group['id'], tab='schedule') }}">Расписание</a>
+</div>
+
+<!-- ============================ ПОСЕЩАЕМОСТЬ ============================ -->
+{% if tab == 'attendance' %}
+<div class="panel mb">
+  <div class="flex mb">
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=prev_month) }}">◀</a>
+    <strong>{{ month_label }}</strong>
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=next_month) }}">▶</a>
+    <span class="small muted">Клик по ячейке меняет статус: пусто → посетил → нет → болел.</span>
+  </div>
+  <div class="flex mb small">
+    <span><span class="presence yes">✓</span> посетил</span>
+    <span><span class="presence no">✗</span> нет</span>
+    <span><span class="presence sick">Б</span> болел</span>
+    <span><span class="presence other">?</span> другое</span>
+  </div>
+
+  <div class="attendance-grid">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>Ребёнок</th>
+          {% for c in attendance_matrix.cols %}
+            <th class="num" title="{{ c.date }}">
+              <div class="matrix-dd">{{ c.daynum }}</div>
+              <div class="matrix-wd">{{ c.weekday }}</div>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in attendance_matrix.rows %}
+        <tr>
+          <td class="matrix-name">
+            {{ r.name }}
+            {% if r.age is not none %}<span class="muted small">, {{ r.age }} лет</span>{% endif %}
+          </td>
+          {% for cell in r.cells %}
+            <td class="num">
+              <button
+                class="acell {{ 'present' if cell.value==1 }}{{ ' absent' if cell.value==2 }}{{ ' sick' if cell.value==3 }}{{ ' other' if cell.value not in [1,2,3] and cell.value is not none }}"
+                data-group="{{ group['id'] }}"
+                data-date="{{ cell.date }}"
+                data-kid="{{ r.kid_id }}"
+                data-value="{{ cell.value if cell.value is not none else '' }}"
+                title="{{ cell.date }}"
+              >{{ {1:'✓',2:'✗',3:'Б'}.get(cell.value, '') }}</button>
+            </td>
+          {% endfor %}
+        </tr>
+        {% else %}
+          <tr><td colspan="{{ attendance_matrix.cols|length + 1 }}" class="empty">Нет обучающихся в группе за выбранный период.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not attendance_matrix.cols %}
+    <div class="empty mt">На этот месяц нет ни дат по расписанию, ни отметок посещаемости.</div>
+  {% endif %}
+</div>
+
+<!-- ============================ КТП ============================ -->
+{% elif tab == 'ktp' %}
+<div class="panel mb">
+  <div class="flex mb">
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='ktp', month=prev_month) }}">◀</a>
+    <strong>{{ month_label }}</strong>
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='ktp', month=next_month) }}">▶</a>
+    <span class="small muted">Строка = дата занятия по расписанию.</span>
+  </div>
+
+  <div class="attendance-grid">
+    <table>
+      <thead>
+        <tr><th>День</th><th>Дата</th><th>Тема</th><th>Типы</th><th>Описание</th><th>Активно</th></tr>
+      </thead>
+      <tbody>
+        {% for l in lessons %}
+        <tr>
+          <td class="num">{{ (l.get('date') or '')[:10][8:10] }}</td>
+          <td class="num">{{ (l.get('date') or '')[:10] }}</td>
+          <td>{{ l.get('theme') or '—' }}</td>
+          <td>
+            {% for t in l.get('types') or [] %}
+              <span class="tag tag-accent">{{ t.get('name', t) if t is mapping else t }}</span>
+            {% endfor %}
+          </td>
+          <td class="small">{{ l.get('description') or '' }}</td>
+          <td>{{ '✓' if l.get('active') else '—' }}</td>
+        </tr>
+        {% else %}
+          <tr><td colspan="6" class="empty">На этот месяц занятий (КТП) нет.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-title">Добавить / изменить занятие (КТП)</div>
+  <form method="post" action="{{ url_for('save_lesson', group_id=group['id']) }}">
+    <div class="row">
+      <div class="field" style="margin:0;"><label>Дата</label><input type="date" name="lesson_date" value="{{ month ~ '-01' }}" required></div>
+      <div class="field" style="margin:0;"><label>Тема</label><input type="text" name="theme" required style="min-width:220px;"></div>
+      <div class="field" style="margin:0;"><label>Тип</label>
+        <select name="types" multiple>
+          {% if subjects %}
+            {% for s in subjects %}
+              <option value="{{ s.get('id') }}">{{ s.get('name') or s.get('theme') or s.get('id') }}</option>
+            {% endfor %}
+          {% else %}
+            <option value="7198" selected>Учебное</option>
+            <option value="9732">Практическая работа</option>
+            <option value="3022">Дистанционное</option>
+          {% endif %}
+        </select>
+        {% if not subjects %}<div class="small muted">Предметы группы не заданы — используются стандартные типы.</div>{% endif %}
+      </div>
+      <button type="submit" class="btn btn-primary">Сохранить</button>
+    </div>
+    <div class="field mt"><label>Описание</label><textarea name="description" rows="2" style="width:100%;"></textarea></div>
+  </form>
+</div>
+
+<!-- ============================ ЗАЯВКИ ============================ -->
+{% elif tab == 'orders' %}
+<div class="panel mb">
+  <div class="panel-title">Заявки группы <span class="badge">{{ orders|length }}</span></div>
+  <div class="attendance-grid">
+    <table>
+      <thead>
+        <tr><th>Ребёнок</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th><th></th></tr>
+      </thead>
+      <tbody id="ordersBody">
+        {% for o in orders %}
+        <tr data-state="{{ o.get('state') or o.get('state_grid') }}">
+          <td>{{ o.get('kid_last_name','') }} {{ o.get('kid_first_name','') }} {{ o.get('kid_patro_name','') }}</td>
+          <td>
+            {% set st = o.get('state') or o.get('state_grid') %}
+            {% if st == 'approve' %}<span class="tag tag-warn">Подтверждена</span>
+            {% elif st == 'study' %}<span class="tag tag-ok">Зачислен</span>
+            {% elif st == 'initial' %}<span class="tag tag-accent">Новая</span>
+            {% elif st == 'deduct' %}<span class="tag tag-danger">Отчислен</span>
+            {% elif st == 'cancel' %}<span class="tag tag-muted">Отменена</span>
+            {% else %}<span class="tag tag-muted">{{ st }}</span>{% endif %}
+          </td>
+          <td>{{ o.get('fact_academic_year_id') or o.get('academic_year_id') }}</td>
+          <td>{{ (o.get('created_ts') or '')[:10] }}</td>
+          <td class="num" style="text-align:left;">
+            {% set st = o.get('state') or o.get('state_grid') %}
+            <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+            {% if st == 'initial' %}
+              <form method="post" action="{{ url_for('approve_order', group_id=group['id']) }}" style="display:inline;">
+                <input type="hidden" name="order_id" value="{{ o.get('id') }}">
+                <button class="btn btn-ok btn-sm" type="submit">Подтвердить</button>
+              </form>
+            {% endif %}
+            {% if st == 'approve' %}
+              <form method="post" action="{{ url_for('accept_order', group_id=group['id']) }}" style="display:inline-flex;gap:6px;align-items:center;">
+                <input type="hidden" name="order_id" value="{{ o.get('id') }}">
+                <input type="date" name="date_signing" required size="10" title="Дата приказа">
+                <input type="date" name="date_start" required size="10" title="Дата начала">
+                <input type="text" name="decree_number" placeholder="№ приказа" size="8" required>
+                <button class="btn btn-ok btn-sm" type="submit">Принять на обучение</button>
+              </form>
+            {% endif %}
+            {% if st in ('initial', 'approve') %}
+              <form method="post" action="{{ url_for('cancel_order', group_id=group['id']) }}" style="display:inline-flex;gap:6px;align-items:center;">
+                <input type="hidden" name="order_id" value="{{ o.get('id') }}">
+                <select name="reason_id" required title="Причина отмены">
+                  <option value="">— причина —</option>
+                  {% for r in cancel_reasons %}
+                    <option value="{{ r.get('id') }}">{{ r.get('name') }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn btn-danger btn-sm" type="submit">Отменить</button>
+              </form>
+            {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% if not orders %}<div class="empty">Заявок нет.</div>{% endif %}
+  </div>
+</div>
+
+<!-- ============================ РАСПИСАНИЕ ============================ -->
+{% elif tab == 'schedule' %}
+<div class="panel">
+  <div class="panel-title">Расписание группы</div>
+  {% if schedule_copy_prev_available %}
+    <button type="button" class="btn btn-sm" style="margin-right:6px;" onclick="openCopyPrevConfirm()">📋 Копировать из прошлого года</button>
+  {% endif %}
+
+  {% if not schedule %}
+    <div class="small warn-note mb">
+      {% if schedule_exists.get('year_prev') %}У группы есть расписание из прошлого года — можно скопировать его кнопкой выше.
+      {% else %}Расписание на выбранный год отсутствует. Добавьте его формой ниже.{% endif %}
+    </div>
+  {% endif %}
+
+  <div class="panel mt">
+    <div class="panel-title" id="schedFormTitle">Добавить расписание</div>
+    <form id="schedForm" onsubmit="return schedFormSubmit(event);">
+      <input type="hidden" id="schedId" value="">
+      <div class="row">
+        <div class="field" style="margin:0;"><label>Период с</label><input type="date" id="schedPeriodFrom" required></div>
+        <div class="field" style="margin:0;"><label>Период до</label><input type="date" id="schedPeriodTo" required></div>
+        <div class="field" style="margin:0;"><label>Время начала</label><input type="time" id="schedTimeStart" required></div>
+      </div>
+      <div class="field mt"><label>Дни недели</label><br>
+        {% for i in range(1, 8) %}
+          <label class="wdchk" style="display:inline-block;margin-right:4px;"><input type="checkbox" name="schedWd" value="{{ i }}"> {{ WD[i] }}</label>
+        {% endfor %}
+      </div>
+      <div class="row">
+        <div class="field" style="margin:0;"><label>Длительность (акад. часов)</label>
+          <select id="schedDuration">
+            <option value="1">1</option><option value="1.5">1,5</option><option value="2">2</option>
+            <option value="2.5">2,5</option><option value="3">3</option><option value="3.5">3,5</option>
+            <option value="4">4</option><option value="4.5">4,5</option><option value="5">5</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;"><label>Акад. час (мин)</label>
+          <select id="schedDurationLength">
+            <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+            <option value="30">30</option><option value="40">40</option><option value="45" selected>45</option>
+            <option value="60">60</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;min-width:190px;"><label>Перерывы, мин (через запятую, 0 — нет)</label><input type="text" id="schedBreaks" placeholder="10" style="width:180px;"></div>
+      </div>
+
+      <div class="sched-block mt" id="schedGroupBlock">
+        <div class="small muted mb">
+          <label class="wdchk" style="display:inline-block;"><input type="checkbox" id="schedApplyGroup" style="margin-right:2px;"> Изменить также период обучения группы и даты приёма заявок.</label>
+        </div>
+        <div class="row" id="schedGroupFields" style="opacity:.45;pointer-events:none;">
+          <div class="field" style="margin:0;"><label>Период обучения: с</label><input type="date" id="schedGDateStart" value="{{ (group.get('date_start') or '')[:10] }}"></div>
+          <div class="field" style="margin:0;"><label>до</label><input type="date" id="schedGDateEnd" value="{{ (group.get('date_end') or '')[:10] }}"></div>
+          <div class="field" style="margin:0;min-width:170px;"><label>Приём заявок: с</label><input type="date" id="schedGOrderFrom" value="{{ (group.get('order_from') or '')[:10] }}"></div>
+          <div class="field" style="margin:0;min-width:170px;"><label>по</label><input type="date" id="schedGOrderTo" value="{{ (group.get('order_to') or '')[:10] }}"></div>
+        </div>
+      </div>
+
+      <div class="flex mt">
+        <button type="submit" class="btn btn-primary" id="schedSubmitBtn">Сохранить расписание</button>
+        <button type="button" class="btn btn-sm" onclick="resetSchedForm()">Очистить форму</button>
+      </div>
+    </form>
+  </div>
+
+  {% if schedule %}
+  <div class="attendance-grid mt">
+    <table>
+      <thead>
+        <tr><th>Дни</th><th>Время</th><th>Длительность</th><th>Перерыв</th><th>Период</th><th>Год</th><th>Действия</th></tr>
+      </thead>
+      <tbody>
+        {% for s in schedule %}
+        <tr id="schedRow_{{ s.get('id') }}"
+            data-period-from="{{ s.get('period_from') }}"
+            data-period-to="{{ s.get('period_to') }}"
+            data-time-start="{{ s.get('time_start') }}"
+            data-week-days="{{ (s.get('week_days') or [])|join(',') }}"
+            data-duration="{{ s.get('duration') }}"
+            data-duration-length="{{ s.get('duration_length') }}"
+            data-breaks="{{ (s.get('breaks') or [])|join(',') }}">
+          <td>
+            {% for d in (s.get('week_days') or []) %}
+              <span class="tag tag-accent">{{ WD.get(d, d) }}</span>
+            {% else %}—{% endfor %}
+          </td>
+          <td>
+            {{ s.get('time_start') or '—' }}{% if s.get('time_end') %} – {{ s.get('time_end') }}{% endif %}
+          </td>
+          <td>
+            {% if s.get('duration') %}
+              {{ s.get('duration') }} × {{ s.get('duration_length') }} мин
+            {% else %}—{% endif %}
+          </td>
+          <td>{{ ', '.join(s.get('breaks')|map('string')|list) if s.get('breaks') else '—' }} мин</td>
+          <td>{{ (s.get('period_from') or '—')[:10] }} – {{ (s.get('period_to') or '—')[:10] }}</td>
+          <td>{{ s.get('academic_year') or s.get('academic_year_id') or '—' }}</td>
+          <td>
+            <button type="button" class="btn btn-sm" onclick="fillSchedForm('schedRow_{{ s.get('id') }}')">✏️ Изменить</button>
+            <button type="button" class="btn btn-sm" style="color:#a02020;border-color:#d03030;" onclick="openSchedDeleteConfirm('{{ s.get('id') }}')">🗑 Удалить</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+    <div class="empty mt">Расписание не загружено (группа не имеет расписания на выбранный год).</div>
+  {% endif %}
+</div>
+
+{% endif %}
+
+<!-- ============================ МОДАЛКА: СПИСОК ДЕТЕЙ ============================ -->
+<div class="modal-backdrop" id="membersModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Список детей</h3>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('membersModal').style.display='none'">Закрыть</button>
+    </div>
+    <div class="modal-body" id="membersBody"><div class="empty">Загрузка…</div></div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ДОБАВИТЬ РЕБЁНКА (ПРЕДПРОСМОТР) ============================ -->
+<div class="modal-backdrop" id="orderPreviewModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Добавить ребёнка — предпросмотр</h3>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('orderPreviewModal').style.display='none'">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Выбран ребёнок: <strong id="opKidName"></strong></div>
+      <div class="flex mb" style="justify-content:space-between;align-items:center;">
+        <span class="small muted">Поиск другого ребёнка:</span>
+        <button type="button" class="btn btn-sm" onclick="openKidSearchForGroup('{{ group['id'] }}')">🔍 Искать</button>
+      </div>
+      <button type="button" class="btn btn-primary" onclick="runOrderPreview()">Показать payload запроса</button>
+      <div class="small warn-note mt"><b>Внимание:</b> показывается только предпросмотр — запрос <b>не отправляется</b>.</div>
+      <div id="opResult" class="mt" style="display:none;">
+        <div class="small muted">Эндпоинт: <span id="opEndpoint"></span></div>
+        <pre class="preview-code" id="opPayload"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ЗАКРЫТЬ ДЕНЬ (ПРЕДПРОСМОТР) ============================ -->
+<div class="modal-backdrop" id="closeDayModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Закрыть день — предпросмотр</h3>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('closeDayModal').style.display='none'">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <form id="closeDayForm" onsubmit="return runCloseDayPreview(event);">
+        <div class="row">
+          <div class="field" style="margin:0;"><label>Дата</label><input type="date" name="date" required></div>
+          <div class="field" style="margin:0;"><label>Процент посещаемости</label><input type="number" name="percent" value="80" min="0" max="100" style="width:90px;"></div>
+        </div>
+        <div class="field mt"><label>Тема занятия</label><input type="text" name="theme"></div>
+        <div class="field mt"><label>Тип занятия</label>
+          <select name="type_id">
+            <option value="9732" selected>Практическая работа (9732)</option>
+            <option value="9419">Учебное (9419)</option>
+            <option value="3022">Дистанционное (3022)</option>
+          </select>
+          <span class="small muted">(как в pomoika.py: Учебное 9419, Практическая 9732, Дистанционное 3022)</span>
+        </div>
+        <div class="field mt"><label>Описание</label><textarea name="description" rows="2" style="width:100%;"></textarea></div>
+        <button type="submit" class="btn btn-primary mt">Показать payload запроса</button>
+      </form>
+      <div class="small warn-note mt"><b>Внимание:</b> показывается только предпросмотр — запрос <b>не отправляется</b>.</div>
+      <div id="cdResult" class="mt" style="display:none;">
+        <div class="small muted">Посещаемость (<span id="cdCount"></span> чел.) → <span id="cdAttEndpoint"></span>, показаны первые 5:</div>
+        <pre class="preview-code" id="cdAttPreview"></pre>
+        <div class="small muted mt">КТП → <span id="cdKtpEndpoint"></span></div>
+        <pre class="preview-code" id="cdKtpPreview"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ПОДТВЕРЖДЕНИЕ РАСПИСАНИЯ ============================ -->
+<div class="modal-backdrop" id="schedConfirmModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;" id="schedConfirmTitle">Подтверждение</h3>
+      <button type="button" class="btn btn-sm" onclick="closeSchedConfirm()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted">Проверьте вводимые данные перед отправкой:</div>
+      <div id="schedConfirmSummary" class="small mt"></div>
+      <pre class="preview-code mt" id="schedConfirmPayload" style="display:none;"></pre>
+      <div class="flex mt" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeSchedConfirm()">Отмена</button>
+        <button type="button" class="btn btn-primary" onclick="runSchedConfirm()">Уверен</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ПЕРЕИМЕНОВАНИЕ ГРУППЫ ============================ -->
+<div class="modal-backdrop" id="renameModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Переименовать группу</h3>
+      <button type="button" class="btn btn-sm" onclick="closeRenameModal()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted">Новое название группы #{{ group.get('id') }}:</div>
+      <div class="field">
+        <input type="text" id="renameInput" value="{{ group.get('name') or '' }}" style="width:100%;">
+      </div>
+      <pre class="preview-code mt" id="renamePayload" style="display:none;"></pre>
+      <div class="flex mt" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeRenameModal()">Отмена</button>
+        <button type="button" class="btn btn-primary" onclick="runRenameConfirm()">Уверен</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  var GROUP_ID = {{ group['id'] }};
+  var OP_KID = null;
+  function openMembersModal() {
+    document.getElementById('membersModal').style.display = 'flex';
+    document.getElementById('membersBody').innerHTML = '<div class="empty">Загрузка…</div>';
+    fetch('/group/' + GROUP_ID + '/members').then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { document.getElementById('membersBody').innerHTML = '<div class="empty">' + esc3(res.error || 'Ошибка') + '</div>'; return; }
+      var rows = res.rows || [];
+      if (!rows.length) { document.getElementById('membersBody').innerHTML = '<div class="empty">В группе нет активных детей</div>'; return; }
+      var html = '<table class="report-table"><thead><tr><th>Ребёнок</th><th class="num">Дата рождения</th><th class="num">Возраст</th></tr></thead><tbody>';
+      rows.forEach(function (r) {
+        html += '<tr><td>' + esc3(r.name) + '</td><td class="num">' + esc3(r.birthday || '—') + '</td><td class="num">' + (r.age != null ? esc3(r.age) + ' лет' : '—') + '</td></tr>';
+      });
+      html += '</tbody></table><div class="small muted mt">Всего: ' + rows.length + '</div>';
+      document.getElementById('membersBody').innerHTML = html;
+    }).catch(function () { document.getElementById('membersBody').innerHTML = '<div class="empty">Ошибка сети</div>'; });
+  }
+  function fillOrderPreview(groupId, kidId, kidFio, siteUserId) {
+    OP_KID = { kid_id: kidId, fio: kidFio, site_user_id: siteUserId };
+    document.getElementById('opKidName').textContent = (kidFio || ('id ' + kidId));
+    document.getElementById('opResult').style.display = 'none';
+    document.getElementById('orderPreviewModal').style.display = 'flex';
+  }
+  function runOrderPreview() {
+    if (!OP_KID) { alert('Сначала выберите ребёнка'); return; }
+    var body = 'kid_id=' + encodeURIComponent(OP_KID.kid_id) + '&site_user_id=' + encodeURIComponent(OP_KID.site_user_id || '');
+    fetch('/group/' + GROUP_ID + '/order_preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Ошибка'); return; }
+      document.getElementById('opEndpoint').textContent = res.endpoint;
+      document.getElementById('opPayload').textContent = JSON.stringify(res.preview, null, 2) + '\n\n// ' + (res.note || '');
+      document.getElementById('opResult').style.display = 'block';
+    }).catch(function () { alert('Ошибка сети'); });
+  }
+  function openCloseDayModal() { document.getElementById('closeDayModal').style.display = 'flex'; }
+  function runCloseDayPreview(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var f = document.getElementById('closeDayForm');
+    var fd = new FormData(f);
+    var body = new URLSearchParams(fd).toString();
+    fetch('/group/' + GROUP_ID + '/close_day_preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Ошибка'); return; }
+      document.getElementById('cdCount').textContent = res.attendance_total;
+      document.getElementById('cdAttEndpoint').textContent = res.attendance_endpoint;
+      document.getElementById('cdAttPreview').textContent = JSON.stringify(res.attendance_preview, null, 2) + '\n// …ещё ' + (res.attendance_total - (res.attendance_preview||[]).length) + ' записей\n// ' + (res.note || '');
+      document.getElementById('cdKtpEndpoint').textContent = res.ktp_endpoint;
+      document.getElementById('cdKtpPreview').textContent = JSON.stringify(res.ktp_preview, null, 2);
+      document.getElementById('cdResult').style.display = 'block';
+    }).catch(function () { alert('Ошибка сети'); });
+    return false;
+  }
+  function esc3(s) {
+    return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  // ============================ ПЕРЕИМЕНОВАНИЕ ============================
+  function openRenameModal() {
+    document.getElementById('renameInput').value = {{ group.get('name')|tojson }} || '';
+    document.getElementById('renamePayload').style.display = 'none';
+    document.getElementById('renameModal').style.display = 'flex';
+    document.getElementById('renameInput').focus();
+  }
+  function closeRenameModal() { document.getElementById('renameModal').style.display = 'none'; }
+  function runRenameConfirm() {
+    var name = document.getElementById('renameInput').value.trim();
+    if (!name) { alert('Введите новое название'); return; }
+    var payload = { data: { name: name } };
+    document.getElementById('renamePayload').textContent = JSON.stringify(payload, null, 2);
+    document.getElementById('renamePayload').style.display = 'block';
+    closeRenameModal();
+    fetch('/group/' + GROUP_ID + '/update', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) { alert('Группа переименована'); window.location.reload(); }
+      else { alert(res.error || 'Ошибка при переименовании'); }
+    }).catch(function () { alert('Ошибка сети'); });
+  }
+  // ============================ РАСПИСАНИЕ ============================
+  var PENDING_SCHED = null;
+  var WD_NAME = { 1: 'Пн', 2: 'Вт', 3: 'Ср', 4: 'Чт', 5: 'Пт', 6: 'Сб', 7: 'Вс' };
+  function closeSchedConfirm() { document.getElementById('schedConfirmModal').style.display = 'none'; PENDING_SCHED = null; }
+  function openSchedConfirm(title, summary, payloadJson, confirmFn) {
+    PENDING_SCHED = confirmFn;
+    document.getElementById('schedConfirmTitle').textContent = title;
+    document.getElementById('schedConfirmSummary').textContent = summary;
+    var pre = document.getElementById('schedConfirmPayload');
+    pre.textContent = payloadJson || '';
+    pre.style.display = payloadJson ? 'block' : 'none';
+    document.getElementById('schedConfirmModal').style.display = 'flex';
+  }
+  function runSchedConfirm() {
+    if (!PENDING_SCHED) return;
+    var fn = PENDING_SCHED;
+    PENDING_SCHED = null;
+    closeSchedConfirm();
+    fn();
+  }
+  function collectSchedPayload() {
+    var periodFrom = document.getElementById('schedPeriodFrom').value;
+    var periodTo = document.getElementById('schedPeriodTo').value;
+    var timeStart = document.getElementById('schedTimeStart').value;
+    var weekDays = [];
+    document.querySelectorAll('input[name="schedWd"]').forEach(function (cb) {
+      if (cb.checked) weekDays.push(parseInt(cb.value, 10));
+    });
+    var breaks = [];
+    var br = document.getElementById('schedBreaks').value.trim();
+    if (br) breaks = br.split(/[\s,;]+/).map(function (x) { return parseInt(x, 10); }).filter(function (n) { return !isNaN(n) && n >= 0; });
+    return {
+      schedule_type: 'BY_WEEK',
+      week_days: weekDays,
+      dates: [],
+      time_start: '2008-01-01 ' + (timeStart || '00:00') + ':00',
+      time_end: null,
+      duration: parseFloat(document.getElementById('schedDuration').value) || 1,
+      duration_length: parseInt(document.getElementById('schedDurationLength').value, 10) || 45,
+      period_from: periodFrom + ' 00:00:00',
+      period_to: periodTo + ' 00:00:00',
+      breaks: breaks
+    };
+  }
+  function collectGroupPayload() {
+    if (!document.getElementById('schedApplyGroup') || !document.getElementById('schedApplyGroup').checked) return null;
+    var p = {};
+    var ds = document.getElementById('schedGDateStart').value;
+    var de = document.getElementById('schedGDateEnd').value;
+    var of = document.getElementById('schedGOrderFrom').value;
+    var ot = document.getElementById('schedGOrderTo').value;
+    if (ds) p.date_start = ds + ' 00:00:00';
+    if (de) p.date_end = de + ' 00:00:00';
+    p.order_from = of ? of + ' 00:00:00' : null;
+    p.order_to = ot ? ot + ' 00:00:00' : null;
+    return p;
+  }
+  function schedFormSubmit(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var payload = collectSchedPayload();
+    if (!payload.week_days.length) { alert('Выберите хотя бы один день недели'); return false; }
+    var id = document.getElementById('schedId').value;
+    var days = payload.week_days.map(function (d) { return WD_NAME[d] || d; }).join(', ');
+    var summary = 'Период: ' + payload.period_from.slice(0, 10) + ' – ' + payload.period_to.slice(0, 10) +
+                  '\nДни: ' + days +
+                  '\nВремя начала: ' + payload.time_start.slice(11, 16) +
+                  '\nДлительность: ' + payload.duration + ' × ' + payload.duration_length + ' мин' +
+                  '\nПерерывы: ' + (payload.breaks.length ? payload.breaks.join(', ') + ' мин' : 'нет');
+    var groupPayload = collectGroupPayload();
+    var json = JSON.stringify({ data: payload }, null, 2);
+    if (groupPayload) {
+      var gp = groupPayload;
+      summary += '\n\nТакже изменится группа:\n' +
+        'Период обучения: ' + (gp.date_start ? gp.date_start.slice(0, 10) : '—') + ' – ' + (gp.date_end ? gp.date_end.slice(0, 10) : '—') +
+        '\nПриём заявок: ' + (gp.order_from ? gp.order_from.slice(0, 10) : '—') + ' – ' + (gp.order_to ? gp.order_to.slice(0, 10) : '—');
+      json += '\n\n// Обновление группы:\n' + JSON.stringify({ data: gp }, null, 2);
+    }
+    if (id) {
+      openSchedConfirm('Редактировать расписание?', summary, json, function () { doSchedSave(payload, id, groupPayload); });
+    } else {
+      openSchedConfirm('Создать расписание?', summary, json, function () { doSchedSave(payload, null, groupPayload); });
+    }
+    return false;
+  }
+  function doSchedSave(payload, id, groupPayload) {
+    var url = id ? '/group/' + GROUP_ID + '/schedule/' + id + '/update' : '/group/' + GROUP_ID + '/schedule/create';
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: payload })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { alert(res.error || 'Ошибка при сохранении расписания'); return; }
+      if (!groupPayload) { alert('Расписание сохранено'); window.location.reload(); return; }
+      fetch('/group/' + GROUP_ID + '/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: groupPayload })
+      }).then(function (r2) { return r2.json(); }).then(function (res2) {
+        if (res2.ok) { alert('Расписание и настройки группы сохранены'); window.location.reload(); }
+        else { alert('Расписание сохранено, но группа: ' + (res2.error || 'ошибка')); }
+      }).catch(function () { alert('Расписание сохранено, но группа: ошибка сети'); });
+    }).catch(function () { alert('Ошибка сети'); });
+  }
+  function resetSchedForm() {
+    document.getElementById('schedId').value = '';
+    document.getElementById('schedPeriodFrom').value = '';
+    document.getElementById('schedPeriodTo').value = '';
+    document.getElementById('schedTimeStart').value = '';
+    document.querySelectorAll('input[name="schedWd"]').forEach(function (cb) { cb.checked = false; });
+    document.getElementById('schedDuration').value = '2';
+    document.getElementById('schedDurationLength').value = '45';
+    document.getElementById('schedBreaks').value = '';
+    document.getElementById('schedFormTitle').textContent = 'Добавить расписание';
+  }
+  function fillSchedForm(rowId) {
+    var row = document.getElementById(rowId);
+    if (!row) return;
+    document.getElementById('schedId').value = (row.getAttribute('data-period-from') || '').length ? row.id.replace('schedRow_', '') : '';
+    document.getElementById('schedPeriodFrom').value = (row.getAttribute('data-period-from') || '').slice(0, 10);
+    document.getElementById('schedPeriodTo').value = (row.getAttribute('data-period-to') || '').slice(0, 10);
+    var ts = (row.getAttribute('data-time-start') || '').split(' ');
+    document.getElementById('schedTimeStart').value = ts.length > 1 ? ts[1].slice(0, 5) : '';
+    var days = (row.getAttribute('data-week-days') || '').split(',').filter(function (x) { return x; });
+    document.querySelectorAll('input[name="schedWd"]').forEach(function (cb) {
+      cb.checked = days.indexOf(cb.value) !== -1;
+    });
+    document.getElementById('schedDuration').value = row.getAttribute('data-duration') || '2';
+    document.getElementById('schedDurationLength').value = row.getAttribute('data-duration-length') || '45';
+    document.getElementById('schedBreaks').value = (row.getAttribute('data-breaks') || '').replace(/,/g, ', ');
+    document.getElementById('schedFormTitle').textContent = 'Редактировать расписание (id ' + document.getElementById('schedId').value + ')';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function openSchedDeleteConfirm(id) {
+    var payload = { data: { id: String(id) } };
+    openSchedConfirm('Удалить расписание #' + id + '?', 'Запись будет удалена без возможности восстановления.', JSON.stringify(payload, null, 2), function () {
+      fetch('/group/' + GROUP_ID + '/schedule/' + id + '/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res.ok) { alert('Расписание удалено'); window.location.reload(); }
+        else { alert(res.error || 'Ошибка при удалении'); }
+      }).catch(function () { alert('Ошибка сети'); });
+    });
+  }
+  function openCopyPrevConfirm() {
+    var payload = { data: { group_id: String(GROUP_ID) } };
+    openSchedConfirm('Копировать расписание из прошлого года?', 'Расписание прошлого года будет скопировано на текущий год.', JSON.stringify(payload, null, 2), function () {
+      fetch('/group/' + GROUP_ID + '/schedule/copy_prev', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        if (res.ok) { alert('Расписание скопировано'); window.location.reload(); }
+        else { alert(res.error || 'Ошибка при копировании'); }
+      }).catch(function () { alert('Ошибка сети'); });
+    });
+  }
+  // Клик по ячейке посещаемости: цикл статусов 1(посетил)->2(нет)->3(болел)->1
+  var NEXT = { '': '1', '1': '2', '2': '3', '3': '1' };
+  document.querySelectorAll('.acell').forEach(function (cell) {
+    cell.addEventListener('click', function () {
+      var cur = cell.getAttribute('data-value') || '';
+      var nxt = NEXT[cur] || '1';
+      var body = {
+        date: cell.getAttribute('data-date'),
+        kid_id: cell.getAttribute('data-kid'),
+        value: nxt
+      };
+      cell.disabled = true;
+      fetch('/group/' + cell.getAttribute('data-group') + '/attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        cell.disabled = false;
+        if (res.ok) {
+          cell.setAttribute('data-value', String(nxt));
+          cell.className = 'acell' + clsFor(nxt);
+          cell.textContent = { '1': '✓', '2': '✗', '3': 'Б' }[nxt] || '';
+        } else {
+          alert(res.error || 'Ошибка при сохранении');
+        }
+      }).catch(function () { cell.disabled = false; });
+    });
+  });
+  function clsFor(v) {
+    if (v === '1') return ' present';
+    if (v === '2') return ' absent';
+    if (v === '3') return ' sick';
+    return '';
+  }
+  var schedApply = document.getElementById('schedApplyGroup');
+  if (schedApply) {
+    var schedGF = document.getElementById('schedGroupFields');
+    schedApply.addEventListener('change', function () {
+      var on = schedApply.checked;
+      if (schedGF) { schedGF.style.opacity = on ? '1' : '.45'; schedGF.style.pointerEvents = on ? 'auto' : 'none'; }
+    });
+  }
+</script>
+{% endblock %}

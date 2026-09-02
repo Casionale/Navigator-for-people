@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Вход — Navigator API{% endblock %}
+{% block content %}
+<div class="grid" style="max-width:420px;margin:60px auto;">
+  <div class="cell" style="padding:26px;">
+    <h2 style="margin-top:0;">Вход в систему</h2>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    <form method="post" action="{{ url_for('login') }}">
+      <div class="field">
+        <label>Email</label>
+        <input type="email" name="email" required autofocus placeholder="user@example.ru">
+      </div>
+      <div class="field">
+        <label>Пароль</label>
+        <input type="password" name="password" required placeholder="••••••••">
+      </div>
+      <div class="field">
+        <label>Учебный год</label>
+        <input type="text" name="year" value="2026">
+      </div>
+      <button type="submit" class="btn btn-primary" style="width:100%;">Войти</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

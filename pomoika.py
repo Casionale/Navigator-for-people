@@ -405,6 +405,8 @@ def close_day(date, theme, type, description):
     #payload = '{"data":{"group_id":"25849","date":"2023-09-05 00:00:00","types":["9732"]}}'
     r = session.post(url=KTP_url_POST, headers=headers, json=payload)
     b = json.loads(r.text)
+    if not b["success"]:
+        print(b["message"])
     #print(b["success"])
     pass
 
@@ -480,7 +482,7 @@ def forced_child_adding(in_group = True):
             also_childs = getListChildrensFromOrder(g)
             all_childrens.extend(also_childs)
 
-    filename = input('Файл с детьми для добавления')
+    filename = input('Файл с детьми для добавления').replace('"','')
     f = open(filename, 'r', encoding='utf-8')
     rows = f.readlines()
     f.close()
@@ -708,11 +710,15 @@ def generateDiagnostic(group, existing = True):
 
     if existing:
         save_document(doc,
-                  get_save_path(f"Выходная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx"))
+                  get_save_path(f"Выходная диагностика {stupid_quotation_marks_fix(groups[int(group)]['program_name'])} "
+                                f"{stupid_quotation_marks_fix(groups[int(group)]['name'])}.docx"))
     else:
         save_document(doc,
-                      get_save_path(f"Входная диагностика {groups[int(group)]['program_name']} {groups[int(group)]['name']}.docx"))
+                      get_save_path(f"Входная диагностика {stupid_quotation_marks_fix(groups[int(group)]['program_name'])} "
+                                    f"{stupid_quotation_marks_fix(groups[int(group)]['name'])}.docx"))
 
+def stupid_quotation_marks_fix(stupid_string):
+    return stupid_string.replace("'", "").replace('"', '')
 
 def generate_data(diagnostics_sums, group, groups, list_fio, table, existing = True):
     summary = [0, 0, 0]
@@ -982,6 +988,7 @@ while True:
                    '13 Генерировать выходную диагностику\n'
                    '14 Поиск детей онлайн по ФИО\n'
                    '15 Генерировать входную диагностику\n'
+                   '16 Получить блок заявок (поняшна)\n'
                    '# Вернуться в главное меню (во всей программе)')
 
     i = 0
@@ -1111,6 +1118,7 @@ while True:
 
         input_str = input('Выберите группу ')
         if input_str == '#':
+            continue
             continue
         getDiagnostics(input_str, False)
 
