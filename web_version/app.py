@@ -97,7 +97,8 @@ def enrich_groups(client, groups):
       _initial  — новых заявок (статус initial),
       _approve  — принятых (статус approve),
       _enrolled — уже зачисленных (статус study / обучаются),
-      _max      — max учеников в группе (max_persons программы).
+      _max      — max учеников в группе (сначала размер группы `size`,
+                  иначе max_persons программы).
     При ошибке получения данных атрибуты остаются None — страница не падает.
     """
     stats_ok = False
@@ -122,7 +123,17 @@ def enrich_groups(client, groups):
             g["_initial"] = None
             g["_approve"] = None
             g["_enrolled"] = None
-        g["_max"] = (max_by_event or {}).get(str(g.get("event_id")))
+        g["_max"] = None
+        # размер группы (size) — истинная вместимость группы; иначе max_persons программы
+        raw = g.get("size")
+        try:
+            sz = int(float(raw)) if raw not in (None, "", "0", 0) else None
+        except (TypeError, ValueError):
+            sz = None
+        if sz:
+            g["_max"] = sz
+        else:
+            g["_max"] = (max_by_event or {}).get(str(g.get("event_id")))
 
 
 # ------------------------------------------------------------------ авторизация
