@@ -8,9 +8,10 @@
     { id: 'salad', label: '\uD83E\uDEB7 Салатовая', bg: '#eef6ec', accent: '#3f9e3f' },
     { id: 'ocean', label: '\uD83C\uDF0A Океан', bg: '#08121f', accent: '#38bdf8' },
     { id: 'anime', label: '\uD83C\uDF38 Аниме', bg: '#fdf0f4', accent: '#ff5c9e' },
-    { id: 'violet', label: '\u2728 Фиолетовая', bg: '#f3f0f9', accent: '#8b5cf6' }
+    { id: 'violet', label: '\u2728 Фиолетовая', bg: '#f3f0f9', accent: '#8b5cf6' },
+    { id: 'ghoul', label: '\U0001F419 Уло', bg: '#0c0c10', accent: '#d3221f' }
   ];
-  const TITLES = { light: 'Светлая', dark: 'Тёмная', sepia: 'Сепия', salad: 'Салатовая', ocean: 'Океан', anime: 'Аниме', violet: 'Фиолетовая' };
+  const TITLES = { light: 'Светлая', dark: 'Тёмная', sepia: 'Сепия', salad: 'Салатовая', ocean: 'Океан', anime: 'Аниме', violet: 'Фиолетовая', ghoul: 'Уло' };
 
   function apply(theme) {
     if (!THEMES.some(function (t) { return t.id === theme; })) theme = 'light';

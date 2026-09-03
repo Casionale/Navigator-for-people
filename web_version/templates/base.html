@@ -4,20 +4,21 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=9">
 </head>
 <body>
 {% if current_user %}
 <nav class="nav">
-  <div class="nav-brand"><span class="dot"></span> Navigator API</div>
+  <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span></div>
   <div class="nav-links">
     <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Главная</a>
     <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
     <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">Посещаемость</a>
-    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки</a>
+    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки<span class="nav-badge" id="navOrderBadge" style="display:none;">0</span></a>
     <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
   </div>
   <div class="nav-spacer"></div>
+  <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">Попросить разработчика</button>
   <div class="nav-user">{{ current_user }}</div>
   <label class="small muted" for="yearSelect">год</label>
   <select id="yearSelect" class="btn-theme" title="Учебный год">
@@ -43,7 +44,7 @@
   {% block content %}{% endblock %}
 </div>
 
-<script src="{{ url_for('static', filename='js/theme.js') }}?v=3"></script>
+<script src="{{ url_for('static', filename='js/theme.js') }}?v=4"></script>
 <script>
   // Смена учебного года в навбаре — обновляет данные страницы автоматически
   document.addEventListener('DOMContentLoaded', function () {
@@ -73,6 +74,53 @@
     });
   });
 </script>
+<script>
+  // ——— Счётчик новых заявок в навбаре ———
+  // Каждое обновление страницы (F5) и вход (логин) сбрасывают тайминг и
+  // запрос выполняется сразу. Далее — раз в 10 минут.
+  // Другие страницы могут принудительно обновить счётчик через
+  // window.refreshOrderBadge() или установить число через window.setOrderBadgeCount().
+  (function () {
+    var KEY = 'nav_orders_ts';
+    var INTERVAL = 10 * 60 * 1000; // 10 минут
+    var badge = null;
+
+    function renderBadge(count) {
+      count = count || 0;
+      if (!badge) badge = document.getElementById('navOrderBadge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.style.display = 'inline-block';
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+
+    // фоновый запрос точного числа
+    function fetchCount() {
+      try { localStorage.setItem(KEY, Date.now()); } catch (e) {}
+      fetch('/api/orders_count').then(function (r) { return r.json() }).then(function (res) {
+        if (res && res.ok) renderBadge(res.count);
+      }).catch(function () {});
+    }
+    // принудительное фоновое обновление (вызовут при загрузке и из др-места)
+    window.refreshOrderBadge = fetchCount;
+    // мгновенно выставить число (вызовет вкладка «Заявки» из ответа сервера)
+    window.setOrderBadgeCount = renderBadge;
+
+    function start() {
+      fetchCount(); // сразу при загрузке/логине — игнорируем прошлый тайминг
+      setInterval(fetchCount, INTERVAL); // и далее раз в 10 минут
+    }
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', start);
+    } else {
+      start();
+    }
+  })();
+</script>
 
 <!-- ============================ ГЛОБАЛЬНЫЙ ПОИСК РЕБЁНКА ============================ -->
 <div class="modal-backdrop" id="kidSearchModal" style="display:none;">
@@ -85,6 +133,24 @@
       <input type="text" id="kidSearchInput" placeholder="ФИО ребёнка…" style="width:100%;" autocomplete="off">
     </div>
     <div class="modal-body" id="kidSearchResults"><div class="empty">Введите ФИО для поиска</div></div>
+  </div>
+</div>
+
+<!-- ============================ ПОПРОСИТЬ РАЗРАБОТЧИКА ============================ -->
+<div class="modal-backdrop" id="feedbackModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Попросить разработчика</h3>
+      <button type="button" class="btn btn-sm" onclick="closeFeedback()">Закрыть</button>
+    </div>
+    <div style="padding:14px 16px 0;">
+      <div class="small muted" style="margin-bottom:8px;">Опишите проблему, ошибку или предложение. Сообщение будет отправлено разработчику как обращение.</div>
+      <textarea id="feedbackText" rows="6" placeholder="Напишите ваше сообщение…" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+    </div>
+    <div class="modal-head" style="border-top:1px solid var(--border);justify-content:flex-end;gap:8px;">
+      <button type="button" class="btn btn-sm" onclick="saveDraft()">Сохранить черновик</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="sendFeedback()">Отправить</button>
+    </div>
   </div>
 </div>
 <script>
@@ -130,6 +196,54 @@
   });
   function esc2(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+<script>
+  // ——— Попросить разработчика ———
+  var FEEDBACK_DRAFT_KEY = 'feedback_draft';
+  function openFeedback() {
+    var modal = document.getElementById('feedbackModal');
+    var ta = document.getElementById('feedbackText');
+    // восстановить черновик
+    try {
+      var draft = localStorage.getItem(FEEDBACK_DRAFT_KEY);
+      if (draft) ta.value = draft;
+    } catch (e) {}
+    modal.style.display = 'flex';
+    ta.focus();
+  }
+  function closeFeedback() {
+    document.getElementById('feedbackModal').style.display = 'none';
+  }
+  function saveDraft() {
+    var text = document.getElementById('feedbackText').value.trim();
+    try { localStorage.setItem(FEEDBACK_DRAFT_KEY, text || ''); } catch (e) {}
+    alert('Черновик сохранён');
+  }
+  function sendFeedback() {
+    var text = document.getElementById('feedbackText').value.trim();
+    if (!text) { alert('Напишите сообщение'); return; }
+    if (!confirm('Отправить сообщение разработчику?')) return;
+    var btn = document.querySelector('#feedbackModal .btn-danger');
+    btn.disabled = true; btn.textContent = 'Отправка…';
+    fetch('/api/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      btn.disabled = false; btn.textContent = 'Отправить';
+      if (res.ok) {
+        try { localStorage.removeItem(FEEDBACK_DRAFT_KEY); } catch (e) {}
+        document.getElementById('feedbackText').value = '';
+        closeFeedback();
+        alert('Отправлено! Спасибо за обращение.');
+      } else {
+        alert(res.error || 'Не удалось отправить');
+      }
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = 'Отправить';
+      alert('Ошибка сети');
+    });
   }
 </script>
 {% block scripts %}{% endblock %}

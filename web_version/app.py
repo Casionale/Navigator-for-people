@@ -3,6 +3,8 @@
 import functools
 import os
 import json
+import urllib.request
+import urllib.error
 from flask import (
     Flask,
     render_template,
@@ -710,6 +712,11 @@ def orders():
     # навбар ИЛИ через селект года на этой странице (оба идут через /set_year)
     orders = client.get_orders(length=limit, **kwargs)
     all_states = client.get_status_dictionary()
+    # число «новых» (статус initial) за год сессии — для счётчика в навбаре
+    try:
+        initial_count = len(client.get_orders(state="initial", academic_year=client.year, length=500))
+    except Exception:
+        initial_count = 0
 
     return render_template(
         "orders.html",
@@ -719,12 +726,27 @@ def orders():
         cur_year=_client_year(),
         cur_limit=limit,
         cancel_reasons=client.get_cancel_reasons("initial"),
+        initial_count=initial_count,
     )
 
 
 # ------------------------------------------------------------------ заявки: деталь и действия (JSON)
 def _order_state_detail(order):
     return (order.get("state") or order.get("state_grid") or "").strip()
+
+
+@app.route("/api/orders_count")
+@login_required
+@safe
+def api_orders_count():
+    """Число новых заявок (статус initial) за текущий учебный год сессии.
+
+    Лёгкий фоновый запрос для бейджа в навбаре. Только чтение.
+    Считаем под тем же годом (клиентский self.year), что и вкладка «Заявки».
+    """
+    client = get_client()
+    orders = client.get_orders(state="initial", academic_year=client.year, length=500)
+    return jsonify({"ok": True, "count": len(orders)})
 
 
 @app.route("/orders/<int:order_id>/detail")
@@ -1079,6 +1101,113 @@ def api_reports():
                         "total": len(rows)})
 
     return jsonify({"ok": False, "error": "Неизвестный вид отчёта"}), 400
+
+
+# ============================ ОБРАЩЕНИЯ РАЗРАБОТЧИКУ ============================
+# Токен GitHub хранится отдельным файлом (не в git): web_version/.github_token
+_GH_TOKEN_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".github_token")
+_GH_REPO = "Casionale/Navigator-for-people"
+_GH_API = "https://api.github.com/repos"
+
+
+def _load_gh_token():
+    try:
+        with open(_GH_TOKEN_FILE, "r", encoding="utf-8") as f:
+            tok = f.read().strip()
+        return tok or None
+    except Exception:
+        return None
+
+
+@app.route("/api/feedback", methods=["POST"])
+@login_required
+@safe
+def api_feedback():
+    """Создаёт обращение к разработчику как GitHub issue (от аккаунта владельца)."""
+    data = request.get_json(silent=True) or {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "Пустое сообщение"}), 400
+    if len(text) > 8000:
+        return jsonify({"ok": False, "error": "Сообщение слишком длинное"}), 400
+    if not app.config.get("GH_TOK"):
+        app.config["GH_TOK"] = _load_gh_token()
+    tok = app.config.get("GH_TOK")
+    if not tok:
+        return jsonify({"ok": False, "error": "GitHub токен не настроен на сервере"}), 500
+
+    title = (text.split("\n")[0] or "Обращение").strip()[:80]
+    body = ("**От кого:** " + str(session.get("user_name", "?")) +
+            "\n\n---\n\n" + text)
+    payload = json.dumps({"title": title, "body": body}).encode("utf-8")
+
+    try:
+        req = urllib.request.Request(
+            f"{_GH_API}/{_GH_REPO}/issues",
+            data=payload,
+            method="POST",
+            headers={
+                "Authorization": "Bearer " + tok,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/json",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+        return jsonify({"ok": True, "url": result.get("html_url", ""),
+                        "number": result.get("number")})
+    except urllib.error.HTTPError as e:
+        return jsonify({"ok": False, "error": f"GitHub API: {e.code} {e.reason}"}), 502
+    except Exception as e:
+        return jsonify({"ok": False, "error": "Ошибка отправки: " + str(e)}), 502
+
+
+# ============================ НОВОСТИ / CHANGELOG ============================
+# Файл новостей: web_version/CHANGELOG.md.
+# Формат записи: блок начинается с заголовка первого уровня
+#   # ДД.ММ.ГГГГ — Заголовок
+# затем идут строки текста (обычный текст / HTML). Записи разбираются сверху вниз.
+_NEWS_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "CHANGELOG.md")
+
+
+def _parse_news(filepath):
+    if not os.path.exists(filepath):
+        return []
+    keys = ["date", "title", "text"]
+    items = []
+    cur = None
+    with open(filepath, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("# "):
+                if cur:
+                    items.append(cur)
+                cur = {"date": "", "title": "", "text": ""}
+                head = stripped[2:].strip()
+                if "—" in head:
+                    d, _, t = head.partition("—")
+                    cur["date"] = d.strip()
+                    cur["title"] = t.strip()
+                else:
+                    cur["title"] = head
+            elif cur:
+                if stripped == "":
+                    cur["text"] += "\n"
+                else:
+                    cur["text"] += stripped + "\n"
+    if cur:
+        items.append(cur)
+    return items
+
+
+@app.route("/api/news")
+@login_required
+@safe
+def api_news():
+    """Возвращает новости (changelog). Сверху — самые свежие."""
+    items = _parse_news(_NEWS_FILE)
+    return jsonify({"ok": True, "items": items})
 
 
 if __name__ == "__main__":

@@ -39,7 +39,7 @@ echo.
 
 rem --- 1. Загрузка файлов приложения (кроме __pycache__) ---
 echo [1/3] Копирую файлы на сервер...
-"%PSCP%" -load %SESSION% -r "%APP_DIR%app.py" "%APP_DIR%navigator.py" "%APP_DIR%requirements.txt" e621@bakasenpai.ru:%REMOTE_DIR%/
+"%PSCP%" -load %SESSION% -r "%APP_DIR%app.py" "%APP_DIR%navigator.py" "%APP_DIR%requirements.txt" "%APP_DIR%CHANGELOG.md" "%APP_DIR%.github_token" e621@bakasenpai.ru:%REMOTE_DIR%/
 if errorlevel 1 goto :error
 
 "%PSCP%" -load %SESSION% -r "%APP_DIR%templates" e621@bakasenpai.ru:%REMOTE_DIR%/

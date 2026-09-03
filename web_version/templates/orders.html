@@ -256,6 +256,10 @@ function actAccept() {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
+  // синхронизировать счётчик «новых заявок» в навбаре с числом со вкладки «Заявки»
+  if (window.setOrderBadgeCount) {
+    window.setOrderBadgeCount({{ initial_count|default(0) }});
+  }
   odTbody = document.querySelector('#ordersTbody') || document.querySelector('tbody');
   document.querySelectorAll('.order-row').forEach(function (tr) {
     tr.addEventListener('click', function () {

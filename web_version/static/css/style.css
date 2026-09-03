@@ -134,6 +134,30 @@
   --shadow: 0 1px 2px rgba(100, 60, 180, .08), 0 8px 24px rgba(100, 60, 180, .09);
 }
 
+/* --- Токийский гуль (Уло) --- */
+[data-theme="ghoul"] {
+  --bg: #0c0c10;
+  --panel: #17171c;
+  --panel2: #1e1e25;
+  --text: #e6e3dd;
+  --muted: #8f8a80;
+  --border: #2c2a30;
+  --accent: #d3221f;
+  --accent-soft: #2a1717;
+  --danger: #e0483f;
+  --danger-soft: #3a1b18;
+  --ok: #6fbf73;
+  --ok-soft: #18271b;
+  --warn: #d8a032;
+  --warn-soft: #31260f;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 8px 24px rgba(200, 30, 20, .12);
+}
+[data-theme="ghoul"] body { background-image: radial-gradient(circle at 50% -10%, rgba(211,34,31,.16), transparent 55%); background-attachment: fixed; }
+[data-theme="ghoul"] .nav { border-bottom: 1px solid var(--border); }
+[data-theme="ghoul"] .nav-brand .dot { background: #d3221f; box-shadow: 0 0 10px rgba(211,34,31,.8); }
+[data-theme="ghoul"] th.sortable:hover { color: var(--accent); }
+[data-theme="ghoul"] .btn-primary { background: var(--danger); border-color: var(--danger); }
+
 
 
 * { box-sizing: border-box; }
@@ -170,6 +194,10 @@ a:hover { text-decoration: underline; }
 .nav-links a.active { background: var(--accent-soft); color: var(--accent); }
 .nav-spacer { flex: 1; }
 .nav-user { color: var(--muted); font-size: 13px; }
+.badge-beta { display:inline-block; margin-left:4px; font-size:11px; font-weight:700; color:#fff; background:#d6336c; border-radius:4px; padding:0 5px; line-height:1.5; vertical-align:middle; }
+.nav-badge { display:inline-block; margin-left:5px; font-size:11px; font-weight:700; color:#fff; background:var(--danger); border-radius:999px; min-width:17px; text-align:center; padding:1px 5px; line-height:1.4; vertical-align:middle; }
+.nav .btn-feedback { background: var(--danger); border-color: var(--danger); color:#fff; white-space:nowrap; }
+.nav .btn-feedback:hover { opacity:.9; }
 .btn-theme {
   border: 1px solid var(--border); background: var(--panel2); color: var(--text);
   border-radius: 999px; padding: 7px 12px; cursor: pointer; font-size: 13px;
@@ -358,6 +386,16 @@ table.matrix th.num, table.matrix td.num { text-align: center; padding: 6px 2px;
 .report-group-program { margin-bottom:6px; }
 .report-group-prog-title { font-weight:bold; margin-bottom:2px; }
 .report-group-item { margin-right:12px; white-space:nowrap; font-size:13px; }
+
+.btn-x { font-size:16px; line-height:1; padding:2px 8px; color:var(--muted); background:none; border:none; }
+.btn-x:hover { color:var(--danger); }
+.news-list { display:flex; flex-direction:column; gap:14px; }
+.news-item { border:1px solid var(--border); background:var(--panel2); border-radius:var(--radius-sm); padding:12px 14px; }
+.news-date { color:var(--accent); font-weight:600; font-size:13px; margin-bottom:2px; }
+.news-title { font-weight:bold; font-size:15px; margin-bottom:6px; }
+.news-body { color:var(--text); line-height:1.6; white-space:pre-line; }
+.news-body ul { margin:6px 0; padding-left:20px; }
+.news-body li { margin-bottom:3px; }
 
 .report-status-filter { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; border-bottom:1px solid var(--border); background:var(--panel2); padding:8px 16px; }
 .rep-st-cb { font-size:13px; white-space:nowrap; cursor:pointer; }

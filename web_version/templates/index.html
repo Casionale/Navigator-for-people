@@ -90,6 +90,12 @@
       <button type="button" class="btn" onclick="loadReport('problem_groups')">⚠ Проблемные группы</button>
       <button type="button" class="btn" onclick="loadReport('duplicates')">👥 Дубликаты детей</button>
     </div>
+
+    <div class="cell">
+      <h4>Новости</h4>
+      <p class="small muted mb">Что нового в веб-версии:</p>
+      <button type="button" class="btn" onclick="openNews()">📣 Новости</button>
+    </div>
   </aside>
 </div>
 
@@ -154,6 +160,17 @@
       <label class="rep-st-cb"><input type="checkbox" class="report-status-cb" value="deduct"> Отчислены</label>
     </div>
     <div class="modal-body" id="reportBody"><div class="empty">Загрузка…</div></div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: НОВОСТИ ============================ -->
+<div class="modal-backdrop" id="newsModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Новости</h3>
+      <button type="button" class="btn btn-sm btn-x" onclick="closeNews()" title="Закрыть" aria-label="Закрыть">&#10005;</button>
+    </div>
+    <div class="modal-body" id="newsBody"><div class="empty">Загрузка…</div></div>
   </div>
 </div>
 {% endblock %}
@@ -451,6 +468,32 @@
       var ta = document.createElement('textarea'); ta.value = tsv; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) {} document.body.removeChild(ta);
     }
   }
+  // ——— Новости (changelog) ———
+  function openNews() {
+    document.getElementById('newsModal').style.display = 'flex';
+    var body = document.getElementById('newsBody');
+    body.innerHTML = '<div class="empty">Загрузка…</div>';
+    fetch('/api/news').then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { body.innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>'; return; }
+      if (!res.items.length) { body.innerHTML = '<div class="empty">Пока нет новостей.</div>'; return; }
+      var html = '<div class="news-list">';
+      res.items.forEach(function (it) {
+        html += '<div class="news-item">' +
+          '<div class="news-date">' + esc(it.date) + '</div>' +
+          '<div class="news-title">' + esc(it.title) + '</div>' +
+          '<div class="news-body">' + it.text + '</div>' +
+          '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    }).catch(function () { body.innerHTML = '<div class="empty">Ошибка сети</div>'; });
+  }
+  function closeNews() {
+    document.getElementById('newsModal').style.display = 'none';
+  }
+  document.getElementById('newsModal').addEventListener('click', function (e) {
+    if (e.target === this) closeNews();
+  });
   document.getElementById('reportModal').addEventListener('click', function (e) {
     if (e.target === this) this.style.display = 'none';
   });

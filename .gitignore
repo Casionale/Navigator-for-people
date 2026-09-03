@@ -1,4 +1,5 @@
 login.ini
+.github_token
 __pycache__/
 *.pyc
 *.pyo
@@ -15,3 +16,8 @@ firefox_api_capturer/
 *.7z
 app.js
 sched_info.md
+cli.py
+gensert.py
+groups.ini
+pomoikadesign.ui
+yadisk_downloader.py
