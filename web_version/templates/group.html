@@ -82,7 +82,7 @@
     <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=prev_month) }}">◀</a>
     <strong>{{ month_label }}</strong>
     <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=next_month) }}">▶</a>
-    <span class="small muted">Клик по ячейке меняет статус: пусто → посетил → нет → болел.</span>
+    <span class="small muted">Клик по ячейке — проставить/снять ✓. Клик по шапке дня — всем ученикам.</span>
   </div>
   <div class="flex mb small">
     <span><span class="presence yes">✓</span> посетил</span>
@@ -97,7 +97,7 @@
         <tr>
           <th>Ребёнок</th>
           {% for c in attendance_matrix.cols %}
-            <th class="num" title="{{ c.date }}">
+            <th class="num day-toggle" data-date="{{ c.date }}" title="{{ c.date }} — клик: проставить всем / снять">
               <div class="matrix-dd">{{ c.daynum }}</div>
               <div class="matrix-wd">{{ c.weekday }}</div>
             </th>
@@ -733,40 +733,88 @@
       }).catch(function () { alert('Ошибка сети'); });
     });
   }
-  // Клик по ячейке посещаемости: цикл статусов 1(посетил)->2(нет)->3(болел)->1
-  var NEXT = { '': '1', '1': '2', '2': '3', '3': '1' };
+  // ============================ ПОСЕЩАЕМОСТЬ: toggle ============================
+  // Клик по клетке: пусто → ✓ → пусто → ✓ ... (один клик ставит, повторный снимает)
+  function updateCell(cell, val) {
+    cell.setAttribute('data-value', val ? '1' : '0');
+    cell.className = 'acell' + (val ? ' present' : '');
+    cell.textContent = val ? '✓' : '';
+  }
+  function sendAttendance(groupId, date, kidId, value, ok, fail) {
+    fetch('/group/' + groupId + '/attendance', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ date: date, kid_id: kidId, value: value })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) ok(res); else fail(res.error || 'Ошибка');
+    }).catch(function () { fail('Ошибка сети'); });
+  }
   document.querySelectorAll('.acell').forEach(function (cell) {
     cell.addEventListener('click', function () {
-      var cur = cell.getAttribute('data-value') || '';
-      var nxt = NEXT[cur] || '1';
-      var body = {
-        date: cell.getAttribute('data-date'),
-        kid_id: cell.getAttribute('data-kid'),
-        value: nxt
-      };
+      var cur = cell.getAttribute('data-value') || '0';
+      // toggle: пусто → ✓, иначе → пусто (снять отметку)
+      var nxt = (cur === '0' || cur === '' || cur === null);
       cell.disabled = true;
-      fetch('/group/' + cell.getAttribute('data-group') + '/attendance', {
+      sendAttendance(
+        cell.getAttribute('data-group'),
+        cell.getAttribute('data-date'),
+        cell.getAttribute('data-kid'),
+        nxt,
+        function (res) { cell.disabled = false; updateCell(cell, nxt); },
+        function (err) { cell.disabled = false; alert(err); }
+      );
+    });
+  });
+
+  // Клик по шапке дня: проставить / снять ✓ всем ученикам за эту дату
+  document.querySelectorAll('th.day-toggle').forEach(function (th) {
+    th.addEventListener('click', function () {
+      var date = th.getAttribute('data-date');
+      if (!date) return;
+      var grid = th.closest('.attendance-grid');
+      if (!grid) return;
+      // Собрать все клетки этого столбца
+      var tbody = grid.querySelector('tbody');
+      if (!tbody) return;
+      var rows = tbody.querySelectorAll('tr');
+      var cols = th.parentNode.children;
+      var colIdx = Array.prototype.indexOf.call(cols, th);
+      // Определяем: если все клетки уже ✓ — снимаем, иначе — ставим ✓ всем
+      var cells = [];
+      var allPresent = true;
+      rows.forEach(function (row) {
+        var cell = row.children[colIdx];
+        if (cell) {
+          var btn = cell.querySelector('.acell');
+          if (btn) {
+            cells.push(btn);
+            var v = btn.getAttribute('data-value');
+            if (v !== '1') allPresent = false;
+          }
+        }
+      });
+      if (!cells.length) return;
+      var targetVal = allPresent ? false : true;
+      // Отправляем batch-запрос
+      var entries = cells.map(function (c) {
+        return { kid_id: c.getAttribute('data-kid'), value: targetVal };
+      });
+      var gid = cells[0].getAttribute('data-group');
+      th.style.opacity = '.5';
+      fetch('/group/' + gid + '/attendance_toggle', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+        body: JSON.stringify({ date: date, entries: entries })
       }).then(function (r) { return r.json(); }).then(function (res) {
-        cell.disabled = false;
+        th.style.opacity = '1';
         if (res.ok) {
-          cell.setAttribute('data-value', String(nxt));
-          cell.className = 'acell' + clsFor(nxt);
-          cell.textContent = { '1': '✓', '2': '✗', '3': 'Б' }[nxt] || '';
+          cells.forEach(function (c) { updateCell(c, targetVal); });
         } else {
           alert(res.error || 'Ошибка при сохранении');
         }
-      }).catch(function () { cell.disabled = false; });
+      }).catch(function () { th.style.opacity = '1'; alert('Ошибка сети'); });
     });
   });
-  function clsFor(v) {
-    if (v === '1') return ' present';
-    if (v === '2') return ' absent';
-    if (v === '3') return ' sick';
-    return '';
-  }
   var schedApply = document.getElementById('schedApplyGroup');
   if (schedApply) {
     var schedGF = document.getElementById('schedGroupFields');

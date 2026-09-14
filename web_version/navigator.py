@@ -393,9 +393,9 @@ class NavigatorClient:
     def save_attendance(self, date, group_id, kid_id, value):
         """Проставить посещаемость ребёнка за дату.
 
-        value: 1 — посетил, 2 — нет, 3 — болел (или bool True/False).
+        value: True — посетил, False — нет (API принимает bool).
         """
-        payload = {"date": date, "group_id": str(group_id), "kid_id": kid_id, "value": value}
+        payload = {"date": date, "group_id": str(group_id), "kid_id": kid_id, "value": bool(value)}
         b = self._post("/api/attendance/save", payload)
         self._invalidate(f"members:{group_id}", f"dates:{group_id}")
         return self._data(b)

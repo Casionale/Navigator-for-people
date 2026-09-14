@@ -458,14 +458,49 @@ def attendance_cell(group_id):
     data = request.get_json(silent=True) or {}
     date = (data.get("date") or "")
     kid_id = (data.get("kid_id") or "")
-    value = data.get("value")  # 1 посетил, 2 нет, 3 болел
+    value = data.get("value")  # true — посетил, false — нет
     if not date or not kid_id:
         return jsonify({"ok": False, "error": "не хватает параметров"}), 400
     try:
-        client.save_attendance(date, group_id, kid_id, int(value))
-        return jsonify({"ok": True, "value": int(value)})
+        client.save_attendance(date, group_id, kid_id, bool(value))
+        return jsonify({"ok": True, "value": bool(value)})
     except NavigatorError as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/group/<int:group_id>/attendance_toggle", methods=["POST"])
+@login_required
+@safe
+def attendance_toggle(group_id):
+    """AJAX: пакетная простановка посещаемости (все ученики за одну дату).
+
+    Принимает JSON: { "date": "YYYY-MM-DD", "entries": [{"kid_id": "...", "value": 1}, ...] }
+    Записывает каждую пару kid_id/value через save_attendance.
+    Возвращает итоговое количество сохранённых записей.
+    """
+    client = get_client()
+    data = request.get_json(silent=True) or {}
+    date = (data.get("date") or "")
+    entries = data.get("entries") or []
+    if not date or not entries:
+        return jsonify({"ok": False, "error": "не хватает параметров (date, entries)"}), 400
+    saved = 0
+    errors = []
+    for e in entries:
+        kid_id = (e.get("kid_id") or "")
+        value = e.get("value")
+        if not kid_id or value is None:
+            continue
+        try:
+            client.save_attendance(date, group_id, kid_id, bool(value))
+            saved += 1
+        except NavigatorError as ex:
+            errors.append(str(ex))
+        except Exception as ex:
+            errors.append(str(ex))
+    if errors:
+        return jsonify({"ok": False, "error": "; ".join(errors[:3]), "saved": saved})
+    return jsonify({"ok": True, "saved": saved})
 
 
 @app.route("/group/<int:group_id>/save_attendance", methods=["POST"])
@@ -483,9 +518,9 @@ def save_attendance(group_id):
         kid_id = m.get("kid_id")
         if not kid_id:
             continue
-        present = kit_id_in(kid_id, kids)
+        present = kid_id_in(kid_id, kids)
         try:
-            client.save_attendance(date, group_id, kid_id, 1 if present else 2)
+            client.save_attendance(date, group_id, kid_id, present)
             saved += 1
         except Exception:
             errors += 1
@@ -494,7 +529,7 @@ def save_attendance(group_id):
     return redirect(url_for("group_page", group_id=group_id, tab="attendance", month=month))
 
 
-def kit_id_in(kid_id, kids):
+def kid_id_in(kid_id, kids):
     return any(k == kid_id or k == str(kid_id) for k in kids)
 
 
