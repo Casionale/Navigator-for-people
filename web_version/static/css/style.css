@@ -194,7 +194,9 @@ a:hover { text-decoration: underline; }
 .nav-links a.active { background: var(--accent-soft); color: var(--accent); }
 .nav-spacer { flex: 1; }
 .nav-user { color: var(--muted); font-size: 13px; }
+.nav-ver { font-size: 11px; font-weight: 600; color: var(--muted); margin-left: 2px; }
 .badge-beta { display:inline-block; margin-left:4px; font-size:11px; font-weight:700; color:#fff; background:#d6336c; border-radius:4px; padding:0 5px; line-height:1.5; vertical-align:middle; }
+.badge-admin { display:inline-block; margin-left:6px; font-size:11px; font-weight:700; color:#fff; background:#8a5cf6; border-radius:4px; padding:0 5px; line-height:1.5; vertical-align:middle; }
 .nav-badge { display:inline-block; margin-left:5px; font-size:11px; font-weight:700; color:#fff; background:var(--danger); border-radius:999px; min-width:17px; text-align:center; padding:1px 5px; line-height:1.4; vertical-align:middle; }
 .nav .btn-feedback { background: var(--danger); border-color: var(--danger); color:#fff; white-space:nowrap; }
 .nav .btn-feedback:hover { opacity:.9; }
@@ -346,9 +348,15 @@ th.day-toggle .matrix-wd { color: var(--accent); }
 
 .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.45); display: flex; align-items: flex-start; justify-content: center; padding: 40px 16px; z-index: 1000; }
 .modal { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); width: min(720px, 100%); max-height: 82vh; display: flex; flex-direction: column; }
+.modal-wide { width: min(960px, 100%); }
+.center { text-align: center; }
 .modal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
 .modal-body { overflow: auto; padding: 12px 18px 18px; }
 .contacts-list { display: flex; flex-direction: column; gap: 10px; }
+.cand-list { display: flex; flex-direction: column; gap: 4px; margin: 4px 0; }
+.cand-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel2); cursor: pointer; font-size: 13px; }
+.cand-item:hover { border-color: var(--accent); }
+.cand-item input { accent-color: var(--accent); }
 .contact-item { border: 1px solid var(--border); background: var(--panel2); border-radius: var(--radius-sm); padding: 12px 14px; line-height: 1.5; }
 .contact-item .rep { font-size: 14px; }
 .contact-item .rep-contacts { color: var(--muted); font-size: 13px; margin: 2px 0; word-break: break-word; }

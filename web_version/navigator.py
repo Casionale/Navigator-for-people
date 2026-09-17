@@ -644,7 +644,7 @@ class NavigatorClient:
         except NavigatorError:
             return []
 
-    def create_order(self, event_id, group_id, kid_id, site_user_id, state="initial"):
+    def create_order(self, event_id, group_id, kid_id, site_user_id, state="initial", academic_year_id=None):
         """Создать заявку в группу."""
         payload = {
             "data": {
@@ -656,7 +656,7 @@ class NavigatorClient:
                 "program_is_pfdod": False,
                 "kid_is_approved": False,
                 "is_online_payments_allowed": False,
-                "academic_year_id": str(self.year),
+                "academic_year_id": str(academic_year_id or self.enroll_year),
                 "certificate_certificate_number": "",
                 "rpgu_deadline_date": None,
                 "kid_birthday": None,

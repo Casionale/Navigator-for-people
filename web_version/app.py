@@ -26,6 +26,25 @@ app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024
 # Серверный кэш клиентов: sid -> NavigatorClient
 _clients = {}
 
+# Админ-клиенты (используются ТОЛЬКО для админ-возможностей,
+# например «Принудительная заявка»): sid -> NavigatorClient
+_admin_clients = {}
+
+# Текущая версия приложения (единый источник — файл VERSION)
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+def _load_app_version():
+    try:
+        with open(os.path.join(APP_DIR, "VERSION"), encoding="utf-8") as f:
+            v = (f.read() or "").strip()
+            return v or "beta"
+    except OSError:
+        return "beta"
+
+
+APP_VERSION = _load_app_version()
+
 
 @app.after_request
 def _no_cache(resp):
@@ -46,6 +65,20 @@ def get_client():
             raise NavigatorError("Нет доступа")
         return c
     raise NavigatorError("Не авторизован")
+
+
+def get_admin_client():
+    """Отдельный клиент администратора для админ-возможностей.
+
+    Создаётся при входе в мини-модалку «Войти как администратор» и
+    используется ТОЛЬКО в админ-эндпоинтах (forced_*), никогда — для
+    обычного интерфейса. Если админ не вошёл — возвращает обычный клиент.
+    """
+    sid = session.get("sid")
+    ac = _admin_clients.get(sid)
+    if ac and ac.access_token:
+        return ac
+    return get_client()
 
 
 LOGIN_INI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "login.ini")
@@ -174,8 +207,57 @@ def login():
 def logout():
     sid = session.pop("sid", None)
     _clients.pop(sid, None)
+    _admin_clients.pop(sid, None)
     session.clear()
     return redirect(url_for("login"))
+
+
+# ------------------------------------------------------------------ вход администратора (мини-модалка)
+@app.route("/api/admin_login", methods=["POST"])
+@login_required
+def api_admin_login():
+    """Вход администратора для админ-возможностей (принудительная заявка).
+
+    Создаёт ОТДЕЛЬНЫЙ клиент навигатора, который используется только в
+    админ-эндпоинтах. Обычный интерфейс (главная, заявки, посещаемость)
+    продолжает работать под обычным аккаунтом — чужие данные не подмешиваются.
+    """
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    email = (data.get("email") or "").strip()
+    password = data.get("password") or ""
+    year = (data.get("year") or "").strip()
+    if not email or not password:
+        return jsonify({"ok": False, "error": "Укажите логин и пароль"}), 400
+    if not year:
+        base = _clients.get(session.get("sid"))
+        year = base.year if base else "2026"
+
+    # год набора подтягиваем как при основном входе
+    enroll_year = data.get("enroll_year") or _load_enroll_year() or year
+    admin = NavigatorClient(email, password, year, enroll_year=enroll_year)
+    try:
+        user = admin.login()
+    except NavigatorError as e:
+        return jsonify({"ok": False, "error": f"Ошибка входа: {e}"}), 401
+
+    sid = session["sid"]
+    _admin_clients[sid] = admin
+    session["admin_email"] = email
+    session["admin_name"] = (user or {}).get("name", email)
+    return jsonify({"ok": True, "email": email, "name": session["admin_name"]})
+
+
+@app.route("/api/admin_logout", methods=["POST"])
+@login_required
+def api_admin_logout():
+    sid = session.get("sid")
+    _admin_clients.pop(sid, None)
+    session.pop("admin_email", None)
+    session.pop("admin_name", None)
+    return jsonify({"ok": True})
 
 
 @app.context_processor
@@ -184,6 +266,9 @@ def inject_globals():
         "current_user": session.get("user_name", ""),
         "current_year": _client_year(),
         "academic_years": _academic_years(),
+        "app_version": APP_VERSION,
+        "admin_email": session.get("admin_email", ""),
+        "admin_name": session.get("admin_name", ""),
     }
 
 
@@ -895,7 +980,9 @@ def group_contacts(group_id):
 @login_required
 @safe
 def search_kid():
-    client = get_client()
+    # поиск детей требует прав администратора — используем админ-клиент
+    # (если админ не вошёл, get_admin_client вернёт обычный клиент)
+    client = get_admin_client()
     q = request.args.get("q", "")
     if not q:
         return jsonify([])
@@ -970,6 +1057,141 @@ def order_preview(group_id):
         "preview": payload,
         "note": "Запрос НЕ отправлен — только предпросмотр.",
     })
+
+
+# ============================ ПРИНУДИТЕЛЬНАЯ ЗАЯВКА ДЕТЕЙ В ГРУППУ ============================
+# Аналог пункта 10 помойки (forced_child_adding): файл со строками
+# «ФИО<TAB>фрагмент программы», интерактивный поиск ребёнка, выбор группы.
+# Действия ТРЕБУЮТ прав администратора — в интерфейсе помечаются.
+@app.route("/forced/search", methods=["POST"])
+@login_required
+def forced_search():
+    """Поиск детей по строкам «ФИО[TAB]фрагмент» + список групп для выбора.
+
+    НИЧЕГО не создаёт. Для каждой строки возвращает найденных кандидатов
+    (из /api/rest/safe/kid) и множество групп, отфильтрованных по фрагменту
+    программы. Фронтенд сам строит интерактивный выбор.
+    Используется админ-клиент (см. get_admin_client).
+    """
+    client = get_admin_client()
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    text = (data.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "Введите список детей (ФИО [TAB] фрагмент программы)"}), 400
+
+    lines = []
+    try:
+        all_groups = client.get_groups() or []
+    except Exception as e:
+        return jsonify({"ok": False, "error": "Не удалось получить группы: " + str(e)}), 502
+    # индексация групп по программе для быстрого фильтра
+    groups_index = {}  # event_id -> [group, ...]
+    for g in all_groups:
+        groups_index.setdefault(str(g.get("event_id")), []).append(g)
+
+    for raw in text.splitlines():
+        s = raw.rstrip("\r").strip()
+        if not s:
+            continue
+        parts = s.split("\t")
+        fio = (parts[0] or "").strip()
+        fragment = (parts[1] if len(parts) > 1 else "").strip()
+        if not fio:
+            continue
+        candidates = []
+        try:
+            candidates = client.search_kid(fio) or []
+        except NavigatorError as e:
+            candidates = []
+            lines.append({"fio": fio, "fragment": fragment, "candidates": [],
+                          "groups": [], "error": str(e)})
+            continue
+        # группы, где название программы содержит фрагмент (если он указан)
+        matched = []
+        if fragment:
+            fl = fragment.lower()
+            for g in all_groups:
+                pname = (g.get("program_name") or "").lower()
+                if fl in pname:
+                    matched.append(g)
+        else:
+            matched = list(all_groups)
+        lines.append({
+            "fio": fio,
+            "fragment": fragment,
+            "candidates": candidates,
+            "groups": [{
+                "id": g.get("id"),
+                "name": g.get("name"),
+                "program_name": g.get("program_name"),
+                "event_id": g.get("event_id"),
+            } for g in matched],
+            "error": None,
+        })
+
+    return jsonify({"ok": True, "lines": lines,
+                    "all_groups": [{
+                        "id": g.get("id"),
+                        "name": g.get("name"),
+                        "program_name": g.get("program_name"),
+                        "event_id": g.get("event_id"),
+                    } for g in all_groups]})
+
+
+@app.route("/forced/create", methods=["POST"])
+@login_required
+def forced_create():
+    """Создание заявок (админ-действие!). Принимает данные по каждой строке:
+    {"orders": [{"kid_id":…, "site_user_id":…, "group_id":…}, …]}
+    Для каждой пары ребёнок+группа отправляется POST /api/rest/order (state=initial).
+    Используется админ-клиент (см. get_admin_client).
+    """
+    client = get_admin_client()
+    try:
+        data = request.get_json(silent=True) or {}
+    except Exception:
+        data = {}
+    orders = data.get("orders")
+    if not isinstance(orders, list) or not orders:
+        return jsonify({"ok": False, "error": "Нет заявок для создания"}), 400
+
+    results = []
+    created = 0
+    for item in orders:
+        kid_id = (item.get("kid_id") or "").strip()
+        site_user_id = (item.get("site_user_id") or "").strip()
+        group_id = (item.get("group_id") or "").strip()
+        res = {"fio": item.get("fio") or "", "kid_id": kid_id, "group_id": group_id}
+        if not kid_id or not site_user_id or not group_id:
+            res["ok"] = False
+            res["error"] = "Не выбраны данные (ребёнок или группа)"
+            results.append(res)
+            continue
+        try:
+            group = client.get_group(int(group_id))
+        except Exception as e:
+            res["ok"] = False
+            res["error"] = f"Группа не найдена: {e}"
+            results.append(res)
+            continue
+        try:
+            client.create_order(
+                group.get("event_id"), group_id, kid_id, site_user_id, "initial"
+            )
+            res["ok"] = True
+            res["group_name"] = " ".join(str(x) for x in
+                [group.get("program_name"), group.get("name")] if x)
+            created += 1
+        except NavigatorError as e:
+            res["ok"] = False
+            res["error"] = str(e)
+        results.append(res)
+
+    return jsonify({"ok": True, "created": created,
+                    "failed": len(results) - created, "results": results})
 
 
 @app.route("/group/<int:group_id>/close_day_preview", methods=["POST"])

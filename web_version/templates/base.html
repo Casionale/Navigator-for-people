@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=10">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
 </head>
 <body>
 {% if current_user %}
 <nav class="nav">
-  <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span></div>
+  <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span> <span class="nav-ver">{{ app_version }}</span></div>
   <div class="nav-links">
     <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Главная</a>
     <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
@@ -126,11 +126,12 @@
 <div class="modal-backdrop" id="kidSearchModal" style="display:none;">
   <div class="modal">
     <div class="modal-head">
-      <h3 style="margin:0;">Поиск ребёнка</h3>
+      <h3 style="margin:0;">Поиск ребёнка <span class="badge-admin">🔐 админ</span></h3>
       <button type="button" class="btn btn-sm" onclick="document.getElementById('kidSearchModal').style.display='none'">Закрыть</button>
     </div>
     <div class="modal-filters" style="padding:10px;">
       <input type="text" id="kidSearchInput" placeholder="ФИО ребёнка…" style="width:100%;" autocomplete="off">
+      <div id="kidSearchAdminHint" class="small muted" style="width:100%;margin-top:6px;"></div>
     </div>
     <div class="modal-body" id="kidSearchResults"><div class="empty">Введите ФИО для поиска</div></div>
   </div>
@@ -160,6 +161,18 @@
     KS_SOURCE = 'nav';
     document.getElementById('kidSearchModal').style.display = 'flex';
     document.getElementById('kidSearchResults').innerHTML = '<div class="empty">Введите ФИО для поиска</div>';
+    renderKidAdminHint();
+  }
+  function renderKidAdminHint() {
+    var el = document.getElementById('kidSearchAdminHint');
+    if (!el) return;
+    var admin = (typeof FORCED_ADMIN !== 'undefined') ? FORCED_ADMIN.email : '';
+    if (admin) {
+      el.innerHTML = 'Админ: <b>' + esc2(admin) + '</b>';
+    } else {
+      el.innerHTML = 'Поиск требует прав администратора. ' +
+        '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">🔐 Войти как администратор</button>';
+    }
   }
   function openKidSearchForGroup(groupId) {
     KS_GROUP = groupId;
@@ -246,6 +259,361 @@
     });
   }
 </script>
+<!-- ============================ ПРИНУДИТЕЛЬНАЯ ЗАЯВКА ДЕТЕЙ В ГРУППУ (АДМИН) ============================ -->
+<div class="modal-backdrop" id="forcedModal" style="display:none;">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3 style="margin:0;">Принудительная заявка детей в группу <span class="badge-admin">🔐 админ</span></h3>
+      <button type="button" class="btn btn-sm" onclick="closeForced()">Закрыть</button>
+    </div>
+    <div class="modal-filters" style="border-bottom:none;">
+      <span class="small muted">Действие требует прав администратора навигатора. Войдите отдельно — обычный интерфейс продолжит работать под вашим аккаунтом.</span>
+    </div>
+    <div class="modal-body">
+      <div class="panel mb" id="forcedAdminBar"></div>
+
+      <div class="row" style="gap:8px;">
+        <div class="field" style="margin:0;">
+          <label>Список детей (по одному на строку)</label>
+          <textarea id="forcedText" rows="7" style="width:100%;font-family:monospace;font-size:13px;" placeholder="Иванов Иван Иванович&#9;Робототехника&#10;Петрова Анна Сергеевна&#9;Программирование"></textarea>
+        </div>
+        <div class="field" style="margin:0;">
+          <label>Или файл .txt</label>
+          <input type="file" id="forcedFile" accept=".txt" style="margin-bottom:8px;">
+          <div class="row" style="gap:8px;">
+            <button type="button" class="btn btn-sm" onclick="loadForcedFile()">Загрузить список</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="runForcedSearch()">🔍 Найти детей</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="forcedLoader" style="display:none;" class="center muted mt">Поиск…</div>
+      <div id="forcedGlobal" style="display:none;" class="mt">
+        <label class="small"><b>Группа по умолчанию</b> <span class="muted">(для строк без своей группы)</span>:
+          <select id="forcedGlobalGroup" style="max-width:100%;"></select>
+        </label>
+      </div>
+      <div id="forcedGroupSearch" style="display:none;" class="mt">
+        <input type="text" id="forcedGroupFilter" placeholder="🔍 Поиск группы (название группы или программы)…" style="width:100%;box-sizing:border-box;">
+        <div class="small muted">Фильтрует группы во всей форме. Начните вводить — совпадения подсветятся.</div>
+      </div>
+      <div id="forcedLines" class="mt"></div>
+      <div id="forcedFooter" style="display:none;" class="mt">
+        <div class="small warn-note"><b>Внимание:</b> создание заявок — изменение данных навигатора. Требуется подтверждение.</div>
+        <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px;">
+          <button type="button" class="btn btn-sm" onclick="closeForced()">Отмена</button>
+          <button type="button" class="btn btn-sm btn-danger" onclick="runForcedCreate()">Создать заявки</button>
+        </div>
+      </div>
+      <div id="forcedResult" class="mt" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ ВХОД АДМИНИСТРАТОРА (МИНИ-МОДАЛКА) ============================ -->
+<div class="modal-backdrop" id="adminLoginModal" style="display:none;">
+  <div class="modal" style="width:min(420px,100%);">
+    <div class="modal-head">
+      <h3 style="margin:0;">Вход администратора <span class="badge-admin">🔐 админ</span></h3>
+      <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Используется только для админ-возможностей (принудительная заявка). Логин/пароль администратора навигатора.</div>
+      <div class="field"><label>E-mail</label><input type="email" id="adminLoginEmail" style="width:100%;" autocomplete="off"></div>
+      <div class="field"><label>Пароль</label><input type="password" id="adminLoginPass" style="width:100%;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+      <div class="small warn-note" id="adminLoginMsg" style="display:none;"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
+        <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Отмена</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="adminLogin()">Войти</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ——— Принудительная заявка детей в группу (админ) ———
+  var FORCED_ADMIN = { email: {{ admin_email|tojson }}, name: {{ admin_name|tojson }} };
+  var FORCED = { allGroups: [], state: [], filter: '' };
+
+  // ——— статус-бар администратора ———
+  function renderAdminBar() {
+    var bar = document.getElementById('forcedAdminBar');
+    if (!bar) return;
+    var html = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;">';
+    if (FORCED_ADMIN.email) {
+      html += '<div class="small"><b>Админ: ' + esc2(FORCED_ADMIN.email) + '</b>' +
+              (FORCED_ADMIN.name ? ' (' + esc2(FORCED_ADMIN.name) + ')' : '') + '</div>';
+      html += '<div class="row" style="gap:6px;">' +
+              '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">Сменить</button>' +
+              '<button type="button" class="btn btn-sm" onclick="adminLogout()">Выйти</button></div>';
+    } else {
+      html += '<div class="small muted">Администратор не вошёл — поиск детей и создание заявок требуют прав администратора.</div>';
+      html += '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">🔐 Войти как администратор</button>';
+    }
+    html += '</div>';
+    bar.innerHTML = html;
+  }
+  function openAdminLogin() {
+    document.getElementById('adminLoginModal').style.display = 'flex';
+    document.getElementById('adminLoginMsg').style.display = 'none';
+    document.getElementById('adminLoginEmail').value = FORCED_ADMIN.email || '';
+    document.getElementById('adminLoginPass').value = '';
+  }
+  function closeAdminLogin() {
+    document.getElementById('adminLoginModal').style.display = 'none';
+  }
+  function adminLogin() {
+    var email = document.getElementById('adminLoginEmail').value.trim();
+    var pass = document.getElementById('adminLoginPass').value;
+    var msg = document.getElementById('adminLoginMsg');
+    if (!email || !pass) { msg.textContent = 'Заполните логин и пароль'; msg.style.display = 'block'; return; }
+    msg.style.display = 'none';
+    fetch('/api/admin_login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: pass })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { msg.textContent = res.error || 'Ошибка входа'; msg.style.display = 'block'; return; }
+      FORCED_ADMIN.email = res.email || email;
+      FORCED_ADMIN.name = res.name || '';
+      closeAdminLogin();
+      renderAdminBar();
+      if (window.renderKidAdminHint) renderKidAdminHint();
+      // прошлый результат поиска сбрасываем — данные могли быть неполными
+      document.getElementById('forcedLines').innerHTML = '';
+      document.getElementById('forcedGlobal').style.display = 'none';
+      document.getElementById('forcedGroupSearch').style.display = 'none';
+      document.getElementById('forcedFooter').style.display = 'none';
+      document.getElementById('forcedResult').style.display = 'none';
+      FORCED.allGroups = []; FORCED.state = [];
+    }).catch(function () { msg.textContent = 'Ошибка сети'; msg.style.display = 'block'; });
+  }
+  function adminLogout() {
+    fetch('/api/admin_logout', { method: 'POST' }).then(function (r) { return r.json(); }).then(function () {
+      FORCED_ADMIN = { email: '', name: '' };
+      renderAdminBar();
+      if (window.renderKidAdminHint) renderKidAdminHint();
+    }).catch(function () {});
+  }
+
+  function openForced() {
+    var m = document.getElementById('forcedModal');
+    m.style.display = 'flex';
+    document.getElementById('forcedResult').style.display = 'none';
+    document.getElementById('forcedLines').innerHTML = '';
+    document.getElementById('forcedGlobal').style.display = 'none';
+    document.getElementById('forcedGroupSearch').style.display = 'none';
+    document.getElementById('forcedFooter').style.display = 'none';
+    document.getElementById('forcedGlobalGroup').innerHTML = '';
+    document.getElementById('forcedGroupFilter').value = '';
+    FORCED = { allGroups: [], state: [], filter: '' };
+    renderAdminBar();
+  }
+  function closeForced() {
+    document.getElementById('forcedModal').style.display = 'none';
+  }
+  function loadForcedFile() {
+    var inp = document.getElementById('forcedFile');
+    if (!inp.files || !inp.files[0]) { alert('Выберите файл .txt'); return; }
+    var reader = new FileReader();
+    reader.onload = function (e) {
+      document.getElementById('forcedText').value = e.target.result;
+    };
+    reader.readAsText(inp.files[0], 'utf-8');
+  }
+  // построить <option> групп (сгруппировано по программам), с учётом фильтра
+  function buildGroupOptions(groups, filter) {
+    filter = (filter || '').trim().toLowerCase();
+    if (!groups || !groups.length) return '<option value="">— группы не найдены —</option>';
+    var byProg = {};
+    var count = 0;
+    groups.forEach(function (g) {
+      var hay = ((g.name || '') + ' ' + (g.program_name || '')).toLowerCase();
+      if (filter && hay.indexOf(filter) < 0) return;
+      var p = g.program_name || ('Программа #' + g.event_id);
+      (byProg[p] = byProg[p] || []).push(g);
+      count++;
+    });
+    if (!count) return '<option value="">— нет групп по фильтру —</option>';
+    var html = '<option value="">— группа по умолчанию (не выбрана) —</option>';
+    Object.keys(byProg).sort().forEach(function (p) {
+      html += '<optgroup label="' + esc2(p) + '">';
+      byProg[p].forEach(function (g) {
+        html += '<option value="' + esc2(g.id) + '">' + esc2(g.name) + ' (#' + esc2(g.id) + ')</option>';
+      });
+      html += '</optgroup>';
+    });
+    return html;
+  }
+  // перестроить все селекторы групп (общий + построчные) с текущим фильтром
+  function refreshGroupSelects() {
+    var g = document.getElementById('forcedGlobalGroup');
+    if (g) {
+      var cur = g.value;
+      g.innerHTML = buildGroupOptions(FORCED.allGroups, FORCED.filter);
+      if (cur) g.value = cur;
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('.frc-group'), function (sel) {
+      var i = parseInt(sel.getAttribute('data-i'), 10);
+      var st = FORCED.state[i];
+      if (!st) return;
+      var src = st.groups.length ? st.groups : FORCED.allGroups;
+      var cur2 = sel.value || st.group_id || '';
+      sel.innerHTML = buildGroupOptions(src, FORCED.filter);
+      if (cur2) sel.value = cur2;
+    });
+  }
+  function runForcedSearch() {
+    var text = document.getElementById('forcedText').value.trim();
+    if (!text) { alert('Введите список детей'); return; }
+    document.getElementById('forcedLoader').style.display = 'block';
+    fetch('/forced/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      document.getElementById('forcedLoader').style.display = 'none';
+      if (!res.ok) { alert(res.error || 'Ошибка поиска'); return; }
+      FORCED.allGroups = res.all_groups || [];
+      FORCED.state = (res.lines || []).map(function (line, i) {
+        return {
+          fio: line.fio,
+          fragment: line.fragment || '',
+          error: line.error,
+          groups: line.groups || [],
+          cands: line.candidates || [],
+          kid_id: '',
+          site_user_id: '',
+          group_id: ''
+        };
+      });
+
+      var gsel = document.getElementById('forcedGlobalGroup');
+      gsel.innerHTML = buildGroupOptions(FORCED.allGroups, FORCED.filter);
+      document.getElementById('forcedGlobal').style.display = 'block';
+      document.getElementById('forcedGroupSearch').style.display = 'block';
+
+      renderForcedLines();
+      document.getElementById('forcedFooter').style.display = 'block';
+    }).catch(function () {
+      document.getElementById('forcedLoader').style.display = 'none';
+      alert('Ошибка сети');
+    });
+  }
+  function renderForcedLines() {
+    var box = document.getElementById('forcedLines');
+    if (!FORCED.state.length) {
+      box.innerHTML = '<div class="empty">Ничего не распознано — проверьте формат (ФИО, по одному на строку)</div>';
+      return;
+    }
+    var html = '';
+    FORCED.state.forEach(function (st, i) {
+      html += '<div class="panel mb">';
+      html += '<div class="panel-title">' + esc2(st.fio) +
+              (st.fragment ? ' <span class="muted">→ ' + esc2(st.fragment) + '</span>' : '') +
+              '</div>';
+      if (st.error) {
+        html += '<div class="small muted">Поиск не выполнен: ' + esc2(st.error) + '</div>';
+      }
+      if (st.fragment) {
+        html += '<div class="small muted">Совпало групп: ' + st.groups.length + '</div>';
+        var matches = st.groups.map(function (g) { return g.name + ' (' + g.program_name + ')'; }).slice(0, 8);
+        if (matches.length) html += '<div class="small muted">' + esc2(matches.join(', ')) + (st.groups.length > 8 ? '…' : '') + '</div>';
+      }
+      html += '<div class="small muted mt"><b>Найденные дети</b>:</div>';
+      html += '<div class="small muted">Выберите ребёнка:</div>';
+      html += '<div class="cand-list">';
+      // список кандидатов
+      var empty = true;
+      for (var cid in st.cands) {
+        var cand = st.cands[cid];
+        empty = false;
+        html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="' + esc2(cand.id) + '" data-su="' + esc2(cand.site_user_id || '') + '" ' + (st.kid_id === cand.id ? 'checked' : '') + '> ' +
+                '<b>' + esc2(cand.fio || '') + '</b> <span class="muted">' + esc2(cand.birthday || '') + ' · ' + esc2(cand.approve_org_caption || '') + '</span></label>';
+      }
+      if (empty) html += '<div class="small muted">— детей не найдено —</div>';
+      html += '</div>';
+      // выбор группы на строку
+      html += '<div class="small muted mt">Группа для этой строки:</div>';
+      html += '<select class="frc-group" data-i="' + i + '" style="max-width:100%;"><option value="">— группа по умолчанию —</option></select>';
+      html += '</div>';
+    });
+    box.innerHTML = html;
+
+    // наполнить селекторы групп: свои (по фрагменту) + все, с учётом фильтра
+    refreshGroupSelects();
+    // сохранение выбора кандидата и группы
+    box.addEventListener('change', function (e) {
+      var el = e.target;
+      if (el.type === 'radio') {
+        var i = parseInt(el.name.replace('frc_', ''), 10);
+        FORCED.state[i].kid_id = el.value;
+        FORCED.state[i].site_user_id = el.getAttribute('data-su');
+      } else if (el.classList.contains('frc-group')) {
+        var i = parseInt(el.getAttribute('data-i'), 10);
+        FORCED.state[i].group_id = el.value;
+      }
+    });
+  }
+
+  function runForcedCreate() {
+    var orders = [];
+    FORCED.state.forEach(function (st) {
+      if (!st.kid_id || !st.site_user_id) return; // ребёнок не выбран — пропуск (как -1 в помойке)
+      var gid = st.group_id || document.getElementById('forcedGlobalGroup').value;
+      if (!gid) return;
+      orders.push({ kid_id: st.kid_id, site_user_id: st.site_user_id, group_id: gid, fio: st.fio });
+    });
+    if (!orders.length) { alert('Выберите хотя бы одного ребёнка и группу'); return; }
+    if (!confirm('Создать ' + orders.length + ' заявок? Это изменение данных навигатора.')) return;
+
+    var footer = document.getElementById('forcedFooter');
+    footer.style.display = 'none';
+    document.getElementById('forcedLoader').style.display = 'block';
+    fetch('/forced/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders: orders })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      document.getElementById('forcedLoader').style.display = 'none';
+      if (!res.ok) { alert(res.error || 'Ошибка создания'); return; }
+      var out = '<div class="panel"><div class="panel-title">Результат: создано ' + res.created + ', ошибок ' + res.failed + '</div>';
+      (res.results || []).forEach(function (r) {
+        var icon = r.ok ? '✅' : '❌';
+        var msg = r.ok ? (r.group_name || 'группа #' + r.group_id) : (r.error || 'ошибка');
+        out += '<div class="small">' + icon + ' ' + esc2(r.fio || ('#' + r.kid_id)) + ' → ' + esc2(msg) + '</div>';
+      });
+      out += '</div>';
+      document.getElementById('forcedResult').innerHTML = out;
+      document.getElementById('forcedResult').style.display = 'block';
+      window.refreshOrderBadge && window.refreshOrderBadge();
+    }).catch(function () {
+      document.getElementById('forcedLoader').style.display = 'none';
+      alert('Ошибка сети');
+    });
+  }
+
+  // ——— поиск по группам: фильтрует все селекторы групп в форме ———
+  (function () {
+    var inp = document.getElementById('forcedGroupFilter');
+    if (!inp) return;
+    var timer = null;
+    inp.addEventListener('input', function () {
+      var val = this.value;
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        FORCED.filter = val;
+        refreshGroupSelects();
+      }, 180);
+    });
+  })();
+
+  // при открытии главной/заявок подтянуть актуальный статус администратора
+  document.addEventListener('DOMContentLoaded', function () {
+    renderAdminBar();
+  });
+</script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>
