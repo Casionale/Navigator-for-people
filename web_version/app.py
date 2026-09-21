@@ -81,6 +81,18 @@ def get_admin_client():
     return get_client()
 
 
+def _has_admin_client():
+    """Есть ли РЕАЛЬНЫЙ админ-клиент в памяти (а не только cookie-сессия).
+
+    Клиент живёт в процессе и теряется при рестарте сервера, тогда как
+    session['admin_email'] сохраняется в cookie. Поэтому «вошёл ли админ»
+    надо проверять по этому признаку, а не по session.
+    """
+    sid = session.get("sid")
+    ac = _admin_clients.get(sid)
+    return bool(ac and ac.access_token)
+
+
 LOGIN_INI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "login.ini")
 
 
@@ -260,6 +272,18 @@ def api_admin_logout():
     return jsonify({"ok": True})
 
 
+@app.route("/api/admin_status")
+@login_required
+def api_admin_status():
+    """Реальное состояние админ-входа (по клиенту в памяти, а не по cookie)."""
+    return jsonify({
+        "ok": True,
+        "active": _has_admin_client(),
+        "email": session.get("admin_email", ""),
+        "name": session.get("admin_name", ""),
+    })
+
+
 @app.context_processor
 def inject_globals():
     return {
@@ -269,6 +293,7 @@ def inject_globals():
         "app_version": APP_VERSION,
         "admin_email": session.get("admin_email", ""),
         "admin_name": session.get("admin_name", ""),
+        "admin_active": _has_admin_client(),
     }
 
 
@@ -284,6 +309,23 @@ def _academic_years():
         return c.get_academic_years()
     except NavigatorError:
         return []
+
+
+@app.route("/api/refresh", methods=["POST"])
+@login_required
+def api_refresh():
+    """Полный сброс серверного кэша сессии (кнопка «жёсткого» обновления).
+
+    Кэш живёт в памяти процесса на каждый клиент сессии; после операций
+    записи он инвалидируется не полностью, поэтому нужен ручной сброс.
+    """
+    sid = session.get("sid")
+    cleared = 0
+    for c in (_clients.get(sid), _admin_clients.get(sid)):
+        if c is not None:
+            c._invalidate()
+            cleared += 1
+    return jsonify({"ok": True, "cleared": cleared})
 
 
 @app.route("/set_year", methods=["POST"])
@@ -1021,6 +1063,122 @@ def order_accept(order_id):
         return jsonify({"ok": True})
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/group/<int:group_id>/transfer_groups")
+@login_required
+@safe
+def group_transfer_groups(group_id):
+    """Целевые группы для перевода детей из указанной группы (JSON)."""
+    client = get_client()
+    groups = client.get_transfer_groups(group_id)
+    return jsonify({
+        "ok": True,
+        "groups": [
+            {"id": g.get("id"), "name": g.get("name"), "program_name": g.get("program_name")}
+            for g in groups
+        ],
+    })
+
+
+@app.route("/group/<int:group_id>/financing")
+@login_required
+@safe
+def group_financing(group_id):
+    """Источники финансирования группы (JSON) — для диалога перевода."""
+    client = get_client()
+    g = client.get_group(group_id)
+    sources = (g.get("financing_sources") if isinstance(g, dict) else None) or []
+    names = dict_map(client.get_dictionary("eventGroupFinancingSource"))
+    out = []
+    for s in sources:
+        val = str(s.get("financing_source"))
+        out.append({"value": val, "label": names.get(val) or ("Источник " + val)})
+    return jsonify({"ok": True, "financing_sources": out})
+
+
+@app.route("/orders/transfer", methods=["POST"])
+@login_required
+@safe
+def orders_transfer():
+    """Массовый перевод заявок из группы в группу с оформлением приказа.
+
+    Тело JSON: {group_id_to, financing_source, academic_year_id, decree_number,
+    date_signing, date_start, orders:[{order_id, kid_id, group_id}]}.
+    Все заявки должны быть из одной исходной группы (общий приказ).
+
+    Требует прав администратора (ресурс MovementsReestrTransfer), поэтому
+    используется админ-клиент. Если админ реально не вошёл — возвращаем
+    need_admin, чтобы фронтенд предложил войти.
+    """
+    if not _has_admin_client():
+        return jsonify({
+            "ok": False, "need_admin": True,
+            "error": "Для перевода требуется вход администратора",
+        }), 403
+    client = get_admin_client()
+    data = request.get_json(silent=True) or {}
+    items = data.get("orders") or []
+    group_id_to = str(data.get("group_id_to") or "").strip()
+    financing_source = str(data.get("financing_source") or "").strip()
+    academic_year_id = data.get("academic_year_id")
+    decree_number = (data.get("decree_number") or "").strip()
+    date_signing = (data.get("date_signing") or "").strip()
+    date_start = (data.get("date_start") or "").strip()
+
+    if not items:
+        return jsonify({"ok": False, "error": "Не выбраны заявки"}), 400
+    if not (group_id_to and financing_source and academic_year_id
+            and decree_number and date_signing and date_start):
+        return jsonify({"ok": False, "error":
+                        "Заполните целевую группу, источник финансирования, "
+                        "год, номер и даты приказа"}), 400
+
+    src = {str(it.get("group_id") or "") for it in items if it.get("group_id")}
+    if len(src) != 1:
+        return jsonify({"ok": False, "error":
+                        "Перевод возможен только для заявок одной группы"}), 400
+    group_id = next(iter(src))
+
+    kid_ids, order_ids = [], []
+    for it in items:
+        oid = str(it.get("order_id") or "")
+        kid = str(it.get("kid_id") or "")
+        if oid and kid:
+            order_ids.append(oid)
+            kid_ids.append(kid)
+    if not order_ids:
+        return jsonify({"ok": False, "error": "Нет заявок с ребёнком"}), 400
+
+    try:
+        res = client.transfer_orders(
+            group_id, group_id_to, kid_ids, order_ids, financing_source,
+            academic_year_id, decree_number, _fmt_dt(date_signing), _fmt_dt(date_start),
+        )
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+    # ответ: data = {"order_<id>": [ошибки...]}; пусто — успех
+    results = []
+    failed = 0
+    d = client._data(res) if isinstance(res, dict) else None
+    if isinstance(d, dict):
+        for oid in order_ids:
+            errs = d.get(f"order_{oid}") or d.get(oid)
+            if errs:
+                failed += 1
+                if isinstance(errs, list):
+                    err = "; ".join(str(x) for x in errs)
+                else:
+                    err = str(errs)
+                results.append({"order_id": oid, "ok": False, "error": err})
+            else:
+                results.append({"order_id": oid, "ok": True})
+    else:
+        results = [{"order_id": oid, "ok": True} for oid in order_ids]
+
+    return jsonify({"ok": True, "done": len(order_ids) - failed,
+                    "failed": failed, "results": results, "group_id_to": group_id_to})
 
 
 @app.route("/group/<int:group_id>/contacts")

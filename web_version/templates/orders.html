@@ -42,15 +42,30 @@
   <div class="panel-title">Результат <span class="badge">{{ orders|length }}</span>
     <span class="small muted">— кликните по ребёнку, чтобы раскрыть информацию и действия по заявке прямо в списке.</span>
   </div>
+  <div class="bulk-bar">
+    <span class="small muted">Выбрано: <b id="odSelCount">0</b></span>
+    <div class="row" style="gap:6px;margin-left:auto;">
+      <button type="button" class="btn btn-sm" onclick="openTransferFromSelection()">Перевести</button>
+    </div>
+  </div>
+  <div class="small muted mb">Отметьте заявки галочками (значок ☑ в шапке — выбрать всех) и нажмите «Перевести». Перевод возможен только для заявок одной группы.</div>
   <div class="attendance-grid">
     <table>
       <thead>
-        <tr><th>Ребёнок</th><th>Группа</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th></tr>
+        <tr><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Группа</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th></tr>
       </thead>
       <tbody id="ordersTbody">
         {% for o in orders %}
         {% set st = o.get('state') or o.get('state_grid') %}
-        <tr class="order-row" data-id="{{ o.get('id') }}" style="cursor:pointer;">
+        <tr class="order-row" data-id="{{ o.get('id') }}" data-kid="{{ o.get('kid_id') }}"
+            data-group="{{ o.get('fact_group_id') or o.get('group_id') or '' }}"
+            data-state="{{ st }}" style="cursor:pointer;">
+          <td class="sel-col" onclick="event.stopPropagation();">
+            <input type="checkbox" class="order-check" value="{{ o.get('id') }}"
+                   data-kid="{{ o.get('kid_id') }}"
+                   data-group="{{ o.get('fact_group_id') or o.get('group_id') or '' }}"
+                   data-state="{{ st }}">
+          </td>
           <td><span class="order-child">{{ o.get('kid_last_name','') }} {{ o.get('kid_first_name','') }} {{ o.get('kid_patro_name','') }}</span></td>
           <td>{% if o.get('group_id') %}<a href="{{ url_for('group_page', group_id=o['group_id'], tab='orders') }}" onclick="event.stopPropagation();">Группа #{{ o['group_id'] }}</a>{% else %}—{% endif %}</td>
           <td>
@@ -68,6 +83,48 @@
       </tbody>
     </table>
     {% if not orders %}<div class="empty">По заданным фильтрам заявок нет.</div>{% endif %}
+  </div>
+</div>
+
+<!-- модалка: перевод в другую группу -->
+<div class="modal-backdrop" id="odTransferModal" style="display:none;">
+  <div class="modal" style="width:min(560px,100%);">
+    <div class="modal-head">
+      <h3 style="margin:0;">Перевод в другую группу</h3>
+      <button type="button" class="btn btn-sm" onclick="closeTransfer()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Заявок к переводу: <b id="odTransferCount">0</b>. Источник: группа #<b id="odTransferSrc">—</b>.</div>
+      <div class="panel" id="odTransferAdminBar" style="padding:8px 10px;margin-bottom:10px;"></div>
+      <div class="field"><label>Целевая группа</label>
+        <input type="text" id="odTransferFilter" placeholder="Фильтр по названию/программе/№" oninput="renderOdTransferGroups()">
+        <select id="odTransferGroup" size="6" style="width:100%;margin-top:6px;" onchange="onOdTransferGroupChange()"></select>
+      </div>
+      <div class="field"><label>Источник финансирования</label>
+        <select id="odTransferFinancing" style="width:100%;"><option value="">— выберите группу —</option></select>
+      </div>
+      <div class="field"><label>Учебный год</label>
+        <select id="odTransferYear" style="width:100%;">
+          {% for y in academic_years %}<option value="{{ y['id'] }}" {{ 'selected' if y['id']|string == current_year|string }}>{{ y['id'] }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>№ приказа</label><input type="text" id="odTransferDecree" style="width:100%;"></div>
+      <div class="field"><label>Дата приказа</label><input type="date" id="odTransferSign" style="width:100%;"></div>
+      <div class="field"><label>Дата начала обучения</label><input type="date" id="odTransferStart" style="width:100%;"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeTransfer()">Отмена</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="submitTransfer()">Перевести</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- оверлей: операция выполняется -->
+<div class="busy-overlay" id="odBusy" style="display:none;">
+  <div class="busy-box">
+    <div class="spinner"></div>
+    <div id="odBusyText">Идёт операция, подождите…</div>
+    <div class="progress"><div class="progress-bar"></div></div>
   </div>
 </div>
 {% endblock %}
@@ -102,6 +159,7 @@ function msg(html, cls) {
 }
 
 var currentOrderId = null;
+var currentOrderObj = null;
 var currentRow = null;
 var odRow = null; // вложенная <tr> с деталями
 
@@ -128,7 +186,7 @@ function openOrder(tr, orderId) {
 
   odRow = document.createElement('tr');
   odRow.className = 'detail-row';
-  odRow.innerHTML = '<td colspan="5"><div class="od-loading">Загрузка заявки #' +
+  odRow.innerHTML = '<td colspan="6"><div class="od-loading">Загрузка заявки #' +
                     esc(orderId) + '…</div></td>';
   tr.after(odRow);
   odTbody.classList.add('row-open');
@@ -137,7 +195,7 @@ function openOrder(tr, orderId) {
     .then(function (res) {
       if (!odRow || !odRow.parentNode) return;
       if (!res.ok) {
-        odRow.innerHTML = '<td colspan="5"><div class="od-msg err">' +
+        odRow.innerHTML = '<td colspan="6"><div class="od-msg err">' +
           esc(res.error || 'Не удалось загрузить') + '</div></td>';
         return;
       }
@@ -145,13 +203,14 @@ function openOrder(tr, orderId) {
     })
     .catch(function () {
       if (odRow && odRow.parentNode) {
-        odRow.innerHTML = '<td colspan="5"><div class="od-msg err">Ошибка сети</div></td>';
+        odRow.innerHTML = '<td colspan="6"><div class="od-msg err">Ошибка сети</div></td>';
       }
     });
 }
 
 function showOrder(res) {
   var o = res.order || {};
+  currentOrderObj = o;
   var st = res.state || '';
   var info = [];
   info.push(fieldRow('Ребёнок', o.kid_fio));
@@ -176,7 +235,7 @@ function showOrder(res) {
   info.push(fieldRow('Дата отчисления', (o.date_deduct || '').slice ? String(o.date_deduct).slice(0,10) : ''));
   info.push(fieldRow('Ребёнок подтверждён', o.kid_is_approved === true ? 'да' : (o.kid_is_approved === false ? 'нет' : '')));
   info.push(fieldRow('Сайт-пользователь', o.site_user_id));
-  var html = '<td colspan="5">' +
+  var html = '<td colspan="6">' +
     '<div class="od-head">Заявка #' + esc(o.id) + ' — ' + esc(o.kid_fio || 'ребёнок') + ' ' +
       stateTagHtml(st) +
       ' <button type="button" class="btn btn-sm" onclick="removeOdRow()">Закрыть</button></div>' +
@@ -215,6 +274,11 @@ function buildActions(o, st, reasons) {
       '</div>';
   } else {
     html += '<span class="small muted">Для статуса «' + esc(st) + '» действия недоступны.</span>';
+  }
+  if ((st === 'approve' || st === 'study') && (o.fact_group_id || o.group_id)) {
+    html += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px;">' +
+      '<button class="btn" onclick="openTransferForOrder()">Перевести в другую группу</button>' +
+      '</div>';
   }
   return html;
 }
@@ -256,6 +320,150 @@ function actAccept() {
     'Заявка принята на обучение');
 }
 
+// ——— массовый выбор и перевод ———
+function odSelected() {
+  var out = [];
+  document.querySelectorAll('#ordersTbody .order-check:checked').forEach(function (cb) {
+    out.push({ order_id: cb.value, kid_id: cb.getAttribute('data-kid'), group_id: cb.getAttribute('data-group') });
+  });
+  return out;
+}
+function odUpdateCount() {
+  var el = document.getElementById('odSelCount');
+  if (el) el.textContent = odSelected().length;
+  var all = document.getElementById('ordersSelectAll');
+  if (all) {
+    var boxes = document.querySelectorAll('#ordersTbody .order-check');
+    var checked = document.querySelectorAll('#ordersTbody .order-check:checked');
+    all.checked = boxes.length > 0 && boxes.length === checked.length;
+    all.indeterminate = checked.length > 0 && checked.length < boxes.length;
+  }
+}
+function openTransferFromSelection() {
+  var items = odSelected();
+  if (!items.length) { alert('Отметьте заявки'); return; }
+  openTransfer(items);
+}
+function openTransferForOrder() {
+  var o = currentOrderObj || {};
+  var gid = o.fact_group_id || o.group_id;
+  if (!gid) { alert('У заявки нет группы'); return; }
+  if (!o.kid_id) { alert('У заявки нет ребёнка'); return; }
+  openTransfer([{ order_id: currentOrderId, kid_id: o.kid_id, group_id: gid }]);
+}
+var odTransferItems = [];
+var odTransferGroupsCache = null;
+function renderOdTransferAdmin() {
+  var el = document.getElementById('odTransferAdminBar');
+  if (!el) return;
+  if (FORCED_ADMIN.active) {
+    el.innerHTML = '<div class="small">🔐 Администратор: <b>' + esc(FORCED_ADMIN.email || '') + '</b>' +
+      (FORCED_ADMIN.name ? ' (' + esc(FORCED_ADMIN.name) + ')' : '') +
+      ' <button type="button" class="btn btn-sm" onclick="adminLogout()">Выйти</button></div>';
+  } else {
+    el.innerHTML = '<div class="small"><span class="warn-note">Перевод выполняет администратор.</span> ' +
+      '<button type="button" class="btn btn-sm btn-primary" onclick="openAdminLogin()">🔐 Войти как администратор</button></div>';
+  }
+}
+function openTransfer(items) {
+  var groups = {};
+  items.forEach(function (it) { if (it.group_id) groups[String(it.group_id)] = true; });
+  var keys = Object.keys(groups);
+  if (keys.length !== 1) { alert('Перевод возможен только для заявок одной группы'); return; }
+  if (items.some(function (it) { return !it.kid_id; })) { alert('У одной из заявок нет ребёнка'); return; }
+  odTransferItems = items;
+  document.getElementById('odTransferCount').textContent = items.length;
+  document.getElementById('odTransferSrc').textContent = keys[0];
+  document.getElementById('odTransferFilter').value = '';
+  document.getElementById('odTransferFinancing').innerHTML = '<option value="">— выберите группу —</option>';
+  var sel = document.getElementById('odTransferGroup');
+  sel.innerHTML = '<option value="">Загрузка…</option>';
+  renderOdTransferAdmin();
+  document.getElementById('odTransferModal').style.display = 'flex';
+  fetch('/group/' + keys[0] + '/transfer_groups')
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      if (!res.ok) { sel.innerHTML = '<option value="">Ошибка загрузки</option>'; return; }
+      odTransferGroupsCache = res.groups || [];
+      renderOdTransferGroups();
+    })
+    .catch(function () { sel.innerHTML = '<option value="">Ошибка сети</option>'; });
+}
+function renderOdTransferGroups() {
+  var sel = document.getElementById('odTransferGroup');
+  if (!sel) return;
+  var q = (document.getElementById('odTransferFilter').value || '').toLowerCase();
+  var html = '<option value="">— выберите группу —</option>';
+  (odTransferGroupsCache || []).forEach(function (g) {
+    var hay = ((g.name || '') + ' ' + (g.program_name || '') + ' ' + g.id).toLowerCase();
+    if (q && hay.indexOf(q) < 0) return;
+    html += '<option value="' + esc(g.id) + '">' + esc(g.name) + ' — ' + esc(g.program_name || '') + ' (#' + esc(g.id) + ')</option>';
+  });
+  sel.innerHTML = html;
+}
+function onOdTransferGroupChange() {
+  var gid = document.getElementById('odTransferGroup').value;
+  var fin = document.getElementById('odTransferFinancing');
+  if (!gid) { fin.innerHTML = '<option value="">— выберите группу —</option>'; return; }
+  fin.innerHTML = '<option value="">Загрузка…</option>';
+  fetch('/group/' + gid + '/financing')
+    .then(function (r) { return r.json(); })
+    .then(function (res) {
+      var fs = res.financing_sources || [];
+      if (!fs.length) { fin.innerHTML = '<option value="">— нет данных —</option>'; return; }
+      fin.innerHTML = fs.map(function (s) {
+        return '<option value="' + esc(s.value) + '">' + esc(s.label) + '</option>';
+      }).join('');
+    })
+    .catch(function () { fin.innerHTML = '<option value="">Ошибка сети</option>'; });
+}
+function closeTransfer() {
+  var m = document.getElementById('odTransferModal');
+  if (m) m.style.display = 'none';
+}
+function odBusy(show, text) {
+  var ov = document.getElementById('odBusy');
+  if (!ov) return;
+  if (text) { var t = document.getElementById('odBusyText'); if (t) t.textContent = text; }
+  ov.style.display = show ? 'flex' : 'none';
+}
+function submitTransfer() {
+  var gto = document.getElementById('odTransferGroup').value;
+  var fin = document.getElementById('odTransferFinancing').value;
+  var yr = document.getElementById('odTransferYear').value;
+  var dec = document.getElementById('odTransferDecree').value.trim();
+  var sign = document.getElementById('odTransferSign').value;
+  var start = document.getElementById('odTransferStart').value;
+  if (!gto) { alert('Выберите целевую группу'); return; }
+  if (!fin) { alert('Выберите источник финансирования'); return; }
+  if (!dec || !sign || !start) { alert('Заполните номер и даты приказа'); return; }
+  if (!confirm('Перевести ' + odTransferItems.length + ' заявок в выбранную группу?')) return;
+  var payload = {
+    group_id_to: gto, financing_source: fin, academic_year_id: yr,
+    decree_number: dec, date_signing: sign, date_start: start, orders: odTransferItems
+  };
+  function doTransfer() {
+    closeTransfer();
+    odBusy(true, 'Перевод: идёт операция, подождите…');
+    fetch('/orders/transfer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      odBusy(false);
+      if (res.need_admin) {
+        FORCED_ADMIN.active = false; renderOdTransferAdmin();
+        requireAdmin(doTransfer);
+        return;
+      }
+      if (!res.ok) { alert(res.error || 'Ошибка'); return; }
+      alert('Перевод: выполнено ' + res.done + (res.failed ? ('\nОшибок: ' + res.failed) : ''));
+      window.location.reload();
+    }).catch(function () { odBusy(false); alert('Ошибка сети'); });
+  }
+  requireAdmin(doTransfer);
+}
+
 document.addEventListener('DOMContentLoaded', function () {
   // синхронизировать счётчик «новых заявок» в навбаре с числом со вкладки «Заявки»
   if (window.setOrderBadgeCount) {
@@ -267,6 +475,19 @@ document.addEventListener('DOMContentLoaded', function () {
       openOrder(tr, tr.getAttribute('data-id'));
     });
   });
+  var selAll = document.getElementById('ordersSelectAll');
+  if (selAll) {
+    selAll.addEventListener('change', function () {
+      var on = selAll.checked;
+      document.querySelectorAll('#ordersTbody .order-check').forEach(function (cb) { cb.checked = on; });
+      selAll.indeterminate = false;
+      odUpdateCount();
+    });
+  }
+  document.querySelectorAll('#ordersTbody .order-check').forEach(function (cb) {
+    cb.addEventListener('change', odUpdateCount);
+  });
+  odUpdateCount();
   var sel = document.getElementById('ordersYear');
   if (sel) {
     sel.addEventListener('change', function () {

@@ -110,6 +110,18 @@ class NavigatorClient:
         )
         return self._check(r)
 
+    def _post_raw(self, path, payload, params=None):
+        """POST без выброса исключения: возвращает (тело-JSON, HTTP-статус)."""
+        url = path if path.startswith("http") else BASE + path
+        r = self.session.post(
+            url, headers=self.headers, json=payload, params=params, timeout=60
+        )
+        try:
+            b = r.json()
+        except Exception:
+            b = {}
+        return b, r.status_code
+
     def _put(self, path, payload, params=None):
         url = path if path.startswith("http") else BASE + path
         r = self.session.put(
@@ -137,6 +149,8 @@ class NavigatorClient:
             errs = b.get("errors") or []
             if errs:
                 msg = errs[0].get("msg", "") if isinstance(errs[0], dict) else str(errs[0])
+            if not msg:
+                msg = b.get("message") or ""
             if silent:
                 return b
             raise NavigatorError(msg or f"Ошибка API (err_code={b.get('err_code')})")
@@ -748,6 +762,70 @@ class NavigatorClient:
         self._invalidate("orders:")
         return b
 
+    def get_transfer_groups(self, group_id, page_size=500):
+        """Группы, в которые можно перевести детей из указанной группы.
+
+        GET /api/transfer/groups/get/{group_id} -> [{id, name, program_name}].
+        API отдаёт не больше 500 за раз (length>500 = ошибка валидации),
+        поэтому листаем страницами. Исходная группа из списка исключается.
+        """
+        def build():
+            out = []
+            try:
+                start = 0
+                for _ in range(20):  # предохранитель: до 10000 групп
+                    b = self._get(
+                        f"/api/transfer/groups/get/{group_id}",
+                        {"page": start // page_size + 1, "start": start, "length": page_size},
+                        silent=True,
+                    )
+                    items = self._data(b) or []
+                    out.extend(items)
+                    if len(items) < page_size:
+                        break
+                    start += page_size
+            except NavigatorError:
+                return out
+            return [g for g in out if str(g.get("id")) != str(group_id)]
+
+        return self._cached(f"transfer_groups:{group_id}", 300, build, cache_empty=False)
+
+    def transfer_orders(self, group_id, group_id_to, kid_ids, order_ids,
+                        financing_source, academic_year_id, decree_number,
+                        date_signing, date_start):
+        """Перевод детей (заявок) из группы в группу с оформлением приказа.
+
+        POST /api/edu-history/kids/transfer — плоское тело (без ``data``),
+        один запрос на все заявки (общий приказ), как в оригинальном интерфейсе.
+        """
+        def _year(v):
+            v = str(v or "").strip()
+            return int(v) if v.isdigit() else v
+
+        payload = {
+            "group_id_to": str(group_id_to),
+            "group_id": str(group_id),
+            "financing_source": str(financing_source),
+            "academic_year_id": _year(academic_year_id),
+            "decree_number": decree_number,
+            "date_signing": date_signing,
+            "date_start": date_start,
+            "kid_ids": [str(k) for k in (kid_ids or [])],
+            "orders": [str(o) for o in (order_ids or [])],
+        }
+        b, status = self._post_raw("/api/edu-history/kids/transfer", payload)
+        if b.get("err_code") != 0 or not b.get("success", True):
+            errs = b.get("errors") or []
+            msg = b.get("message") or ""
+            if not msg and errs and isinstance(errs[0], dict):
+                msg = errs[0].get("msg", "")
+            if not msg:
+                msg = json.dumps(b, ensure_ascii=False)[:300]
+            raise NavigatorError(
+                f"Перевод не выполнен (err_code={b.get('err_code')}, HTTP {status}): {msg}"
+            )
+        self._invalidate("orders:", "members:", "dates:", "group:")
+        return b
     # ------------------------------------------------------------------ справочники
     def get_dictionary(self, name, params=None):
         """Универсальный словарь: GET /api/getDictionary/{name} -> list.

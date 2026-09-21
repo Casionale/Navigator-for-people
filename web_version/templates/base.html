@@ -4,9 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=16">
 </head>
 <body>
+<div id="jsErrorBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;padding:8px 12px;font:12px/1.4 monospace;white-space:pre-wrap;"></div>
+<script>
+  window.addEventListener('error', function (e) {
+    var b = document.getElementById('jsErrorBar');
+    if (!b) return;
+    b.textContent = 'JS-ошибка: ' + (e.message || (e.error && e.error.message) || e.type) +
+      ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
+    b.style.display = 'block';
+  });
+</script>
 {% if current_user %}
 <nav class="nav">
   <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span> <span class="nav-ver">{{ app_version }}</span></div>
@@ -18,6 +28,7 @@
     <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
   </div>
   <div class="nav-spacer"></div>
+  <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="Сбросить серверный кэш и перезагрузить данные">↻ Обновить</button>
   <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">Попросить разработчика</button>
   <div class="nav-user">{{ current_user }}</div>
   <label class="small muted" for="yearSelect">год</label>
@@ -71,6 +82,38 @@
         sel.disabled = false;
         alert('Ошибка сети при смене года');
       });
+    });
+  });
+</script>
+<script>
+  // ——— Жёсткое обновление: сброс серверного кэша + перезагрузка ———
+  function hardRefresh(btn) {
+    if (btn && btn.disabled) return;
+    if (btn) { btn.disabled = true; btn.classList.add('spin'); }
+    function done() { window.location.reload(); }
+    fetch('/api/refresh', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function (r) { return r.json(); }).then(done, done);
+  }
+  // Кнопка ↻ рядом с каждой таблицей (панели, группы программ).
+  document.addEventListener('DOMContentLoaded', function () {
+    function makeBtn() {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'panel-refresh';
+      b.title = 'Сбросить серверный кэш и обновить данные';
+      b.setAttribute('aria-label', 'Обновить данные');
+      b.innerHTML = '&#8635;';
+      b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); hardRefresh(b); });
+      return b;
+    }
+    document.querySelectorAll('.panel-title, .program-head').forEach(function (t) {
+      if (!t.querySelector('.panel-refresh')) t.appendChild(makeBtn());
+    });
+    document.querySelectorAll('.panel').forEach(function (p) {
+      if (p.querySelector('.panel-refresh') || !p.querySelector('table')) return;
+      var b = makeBtn();
+      b.classList.add('panel-refresh-float');
+      p.appendChild(b);
     });
   });
 </script>
@@ -326,7 +369,7 @@
       <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Закрыть</button>
     </div>
     <div class="modal-body">
-      <div class="small muted mb">Используется только для админ-возможностей (принудительная заявка). Логин/пароль администратора навигатора.</div>
+      <div class="small muted mb">Используется только для админ-возможностей (принудительная заявка, перевод между группами). Логин/пароль администратора навигатора.</div>
       <div class="field"><label>E-mail</label><input type="email" id="adminLoginEmail" style="width:100%;" autocomplete="off"></div>
       <div class="field"><label>Пароль</label><input type="password" id="adminLoginPass" style="width:100%;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
       <div class="small warn-note" id="adminLoginMsg" style="display:none;"></div>
@@ -340,7 +383,7 @@
 
 <script>
   // ——— Принудительная заявка детей в группу (админ) ———
-  var FORCED_ADMIN = { email: {{ admin_email|tojson }}, name: {{ admin_name|tojson }} };
+  var FORCED_ADMIN = { email: {{ admin_email|tojson }}, name: {{ admin_name|tojson }}, active: {{ admin_active|tojson }} };
   var FORCED = { allGroups: [], state: [], filter: '', globalGroupId: '' };
 
   // ——— статус-бар администратора ———
@@ -348,7 +391,7 @@
     var bar = document.getElementById('forcedAdminBar');
     if (!bar) return;
     var html = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;">';
-    if (FORCED_ADMIN.email) {
+    if (FORCED_ADMIN.active) {
       html += '<div class="small"><b>Админ: ' + esc2(FORCED_ADMIN.email) + '</b>' +
               (FORCED_ADMIN.name ? ' (' + esc2(FORCED_ADMIN.name) + ')' : '') + '</div>';
       html += '<div class="row" style="gap:6px;">' +
@@ -367,6 +410,31 @@
     document.getElementById('adminLoginEmail').value = FORCED_ADMIN.email || '';
     document.getElementById('adminLoginPass').value = '';
   }
+  // Выполнить действие, требующее прав администратора. Реальное состояние
+  // админа берём с сервера (клиент живёт в памяти и теряется при рестарте),
+  // поэтому cookie-сессия может врать. Если админа нет — открываем вход.
+  var ADMIN_LOGIN_CB = null;
+  function refreshAdminHooks() {
+    if (window.renderTransferAdmin) renderTransferAdmin();
+    if (window.renderOdTransferAdmin) renderOdTransferAdmin();
+    renderAdminBar();
+    if (window.renderKidAdminHint) renderKidAdminHint();
+  }
+  function requireAdmin(cb) {
+    fetch('/api/admin_status').then(function (r) { return r.json(); }).then(function (res) {
+      FORCED_ADMIN.active = !!res.active;
+      FORCED_ADMIN.email = res.email || FORCED_ADMIN.email;
+      FORCED_ADMIN.name = res.name || FORCED_ADMIN.name;
+      refreshAdminHooks();
+      if (FORCED_ADMIN.active) { cb(); return; }
+      ADMIN_LOGIN_CB = cb;
+      openAdminLogin();
+    }).catch(function () {
+      if (FORCED_ADMIN.active) { cb(); return; }
+      ADMIN_LOGIN_CB = cb;
+      openAdminLogin();
+    });
+  }
   function closeAdminLogin() {
     document.getElementById('adminLoginModal').style.display = 'none';
   }
@@ -384,9 +452,14 @@
       if (!res.ok) { msg.textContent = res.error || 'Ошибка входа'; msg.style.display = 'block'; return; }
       FORCED_ADMIN.email = res.email || email;
       FORCED_ADMIN.name = res.name || '';
+      FORCED_ADMIN.active = true;
       closeAdminLogin();
       renderAdminBar();
       if (window.renderKidAdminHint) renderKidAdminHint();
+      if (window.renderTransferAdmin) renderTransferAdmin();
+      if (window.renderOdTransferAdmin) renderOdTransferAdmin();
+      var cb = ADMIN_LOGIN_CB; ADMIN_LOGIN_CB = null;
+      if (cb) cb();
       // прошлый результат поиска сбрасываем — данные могли быть неполными
       document.getElementById('forcedLines').innerHTML = '';
       document.getElementById('forcedGlobal').style.display = 'none';
@@ -398,9 +471,8 @@
   }
   function adminLogout() {
     fetch('/api/admin_logout', { method: 'POST' }).then(function (r) { return r.json(); }).then(function () {
-      FORCED_ADMIN = { email: '', name: '' };
-      renderAdminBar();
-      if (window.renderKidAdminHint) renderKidAdminHint();
+      FORCED_ADMIN = { email: '', name: '', active: false };
+      refreshAdminHooks();
     }).catch(function () {});
   }
 

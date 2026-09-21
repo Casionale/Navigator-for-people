@@ -225,8 +225,14 @@ a:hover { text-decoration: underline; }
 .cell p { margin: 2px 0; color: var(--muted); font-size: 13px; }
 .cell .big { font-size: 22px; font-weight: 700; }
 
-.panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
+.panel { position: relative; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); }
 .panel-title { font-size: 15px; font-weight: 600; margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.panel-refresh { margin-left: auto; background: transparent; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; cursor: pointer; font-size: 14px; line-height: 1; padding: 3px 8px; }
+.panel-refresh:hover { color: var(--text); border-color: var(--text); }
+.panel-refresh:disabled { opacity: .6; cursor: default; }
+.panel-refresh.spin { animation: panel-spin .8s linear infinite; }
+.panel-refresh-float { position: absolute; top: 12px; right: 12px; }
+@keyframes panel-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
 /* ---------- Таблицы ---------- */
 table { width: 100%; border-collapse: collapse; }

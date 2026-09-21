@@ -209,6 +209,7 @@
     <div class="row" style="gap:6px;margin-left:auto;">
       <button type="button" class="btn btn-ok btn-sm" onclick="bulkApprove()">Подтвердить</button>
       <button type="button" class="btn btn-primary btn-sm" onclick="openBulkAccept()">Принять на обучение</button>
+      <button type="button" class="btn btn-sm" onclick="openBulkTransfer()">Перевести</button>
       <button type="button" class="btn btn-danger btn-sm" onclick="openBulkDeduct()">Отчислить</button>
     </div>
   </div>
@@ -322,6 +323,39 @@
       <div class="row" style="justify-content:flex-end;gap:8px;">
         <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Отмена</button>
         <button type="button" class="btn btn-sm btn-danger" onclick="submitBulkDeduct()">Отчислить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- модалка: перевод в другую группу -->
+<div class="modal-backdrop" id="bulkTransferModal" style="display:none;">
+  <div class="modal" style="width:min(560px,100%);">
+    <div class="modal-head">
+      <h3 style="margin:0;">Перевод в другую группу</h3>
+      <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Выбрано: <b id="bulkTransferCount">0</b>. Все заявки должны быть из одной группы.</div>
+      <div class="panel" id="bulkTransferAdminBar" style="padding:8px 10px;margin-bottom:10px;"></div>
+      <div class="field"><label>Целевая группа</label>
+        <input type="text" id="bulkTransferFilter" placeholder="Фильтр по названию/программе/№" oninput="renderTransferGroups()">
+        <select id="bulkTransferGroup" size="6" style="width:100%;margin-top:6px;" onchange="onTransferGroupChange()"></select>
+      </div>
+      <div class="field"><label>Источник финансирования</label>
+        <select id="bulkTransferFinancing" style="width:100%;"><option value="">— выберите группу —</option></select>
+      </div>
+      <div class="field"><label>Учебный год</label>
+        <select id="bulkTransferYear" style="width:100%;">
+          {% for y in academic_years %}<option value="{{ y['id'] }}" {{ 'selected' if y['id']|string == current_year|string }}>{{ y['id'] }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="field"><label>№ приказа</label><input type="text" id="bulkTransferDecree" style="width:100%;"></div>
+      <div class="field"><label>Дата приказа</label><input type="date" id="bulkTransferSign" style="width:100%;"></div>
+      <div class="field"><label>Дата начала обучения</label><input type="date" id="bulkTransferStart" style="width:100%;"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Отмена</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="submitBulkTransfer()">Перевести</button>
       </div>
     </div>
   </div>
@@ -902,7 +936,7 @@
   function bulkSelected() {
     var out = [];
     document.querySelectorAll('#ordersBody .order-check:checked').forEach(function (cb) {
-      out.push({ order_id: cb.value, kid_id: cb.getAttribute('data-kid'), state: cb.getAttribute('data-state') });
+      out.push({ order_id: cb.value, kid_id: cb.getAttribute('data-kid'), state: cb.getAttribute('data-state'), group_id: GROUP_ID });
     });
     return out;
   }
@@ -923,6 +957,7 @@
   function closeBulkModals() {
     var a = document.getElementById('bulkAcceptModal'); if (a) a.style.display = 'none';
     var d = document.getElementById('bulkDeductModal'); if (d) d.style.display = 'none';
+    var t = document.getElementById('bulkTransferModal'); if (t) t.style.display = 'none';
   }
   function bulkBusy(show, text) {
     var ov = document.getElementById('bulkBusy');
@@ -981,6 +1016,104 @@
     if (!confirm('Отчислить ' + items.length + ' детей?')) return;
     closeBulkModals();
     bulkPost({ action: 'deduct', orders: items, decree_number: dec, date_signing: sign, date_start: start, reason_id: reason }, 'Отчисление');
+  }
+  // ——— перевод в другую группу ———
+  var transferGroupsCache = null;
+  function renderTransferAdmin() {
+    var el = document.getElementById('bulkTransferAdminBar');
+    if (!el) return;
+    if (FORCED_ADMIN.active) {
+      el.innerHTML = '<div class="small">🔐 Администратор: <b>' + esc3(FORCED_ADMIN.email || '') + '</b>' +
+        (FORCED_ADMIN.name ? ' (' + esc3(FORCED_ADMIN.name) + ')' : '') +
+        ' <button type="button" class="btn btn-sm" onclick="adminLogout()">Выйти</button></div>';
+    } else {
+      el.innerHTML = '<div class="small"><span class="warn-note">Перевод выполняет администратор.</span> ' +
+        '<button type="button" class="btn btn-sm btn-primary" onclick="openAdminLogin()">🔐 Войти как администратор</button></div>';
+    }
+  }
+  function openBulkTransfer() {
+    var items = bulkSelected();
+    if (!items.length) { alert('Отметьте заявки'); return; }
+    document.getElementById('bulkTransferCount').textContent = items.length;
+    document.getElementById('bulkTransferFilter').value = '';
+    document.getElementById('bulkTransferFinancing').innerHTML = '<option value="">— выберите группу —</option>';
+    var sel = document.getElementById('bulkTransferGroup');
+    sel.innerHTML = '<option value="">Загрузка…</option>';
+    renderTransferAdmin();
+    document.getElementById('bulkTransferModal').style.display = 'flex';
+    fetch('/group/' + GROUP_ID + '/transfer_groups')
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        if (!res.ok) { sel.innerHTML = '<option value="">Ошибка загрузки</option>'; return; }
+        transferGroupsCache = res.groups || [];
+        renderTransferGroups();
+      })
+      .catch(function () { sel.innerHTML = '<option value="">Ошибка сети</option>'; });
+  }
+  function renderTransferGroups() {
+    var sel = document.getElementById('bulkTransferGroup');
+    if (!sel) return;
+    var q = (document.getElementById('bulkTransferFilter').value || '').toLowerCase();
+    var html = '<option value="">— выберите группу —</option>';
+    (transferGroupsCache || []).forEach(function (g) {
+      var hay = ((g.name || '') + ' ' + (g.program_name || '') + ' ' + g.id).toLowerCase();
+      if (q && hay.indexOf(q) < 0) return;
+      html += '<option value="' + esc3(g.id) + '">' + esc3(g.name) + ' — ' + esc3(g.program_name || '') + ' (#' + esc3(g.id) + ')</option>';
+    });
+    sel.innerHTML = html;
+  }
+  function onTransferGroupChange() {
+    var gid = document.getElementById('bulkTransferGroup').value;
+    var fin = document.getElementById('bulkTransferFinancing');
+    if (!gid) { fin.innerHTML = '<option value="">— выберите группу —</option>'; return; }
+    fin.innerHTML = '<option value="">Загрузка…</option>';
+    fetch('/group/' + gid + '/financing')
+      .then(function (r) { return r.json(); })
+      .then(function (res) {
+        var fs = res.financing_sources || [];
+        if (!fs.length) { fin.innerHTML = '<option value="">— нет данных —</option>'; return; }
+        fin.innerHTML = fs.map(function (s) {
+          return '<option value="' + esc3(s.value) + '">' + esc3(s.label) + '</option>';
+        }).join('');
+      })
+      .catch(function () { fin.innerHTML = '<option value="">Ошибка сети</option>'; });
+  }
+  function submitBulkTransfer() {
+    var items = bulkSelected();
+    var gto = document.getElementById('bulkTransferGroup').value;
+    var fin = document.getElementById('bulkTransferFinancing').value;
+    var yr = document.getElementById('bulkTransferYear').value;
+    var dec = document.getElementById('bulkTransferDecree').value.trim();
+    var sign = document.getElementById('bulkTransferSign').value;
+    var start = document.getElementById('bulkTransferStart').value;
+    if (!gto) { alert('Выберите целевую группу'); return; }
+    if (!fin) { alert('Выберите источник финансирования'); return; }
+    if (!dec || !sign || !start) { alert('Заполните номер и даты приказа'); return; }
+    if (!confirm('Перевести ' + items.length + ' заявок в выбранную группу?')) return;
+    var payload = {
+      group_id_to: gto, financing_source: fin, academic_year_id: yr,
+      decree_number: dec, date_signing: sign, date_start: start, orders: items
+    };
+    function doTransfer() {
+      closeBulkModals();
+      bulkBusy(true, 'Перевод: идёт операция, подождите…');
+      fetch('/orders/transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (res) {
+        bulkBusy(false);
+        if (res.need_admin) {
+          FORCED_ADMIN.active = false; renderTransferAdmin();
+          requireAdmin(doTransfer);
+          return;
+        }
+        if (!res.ok) { alert(res.error || 'Ошибка'); return; }
+        alert('Перевод: выполнено ' + res.done + (res.failed ? ('\nОшибок: ' + res.failed) : ''));
+        window.location.reload();
+      }).catch(function () { bulkBusy(false); alert('Ошибка сети'); });
+    }
+    requireAdmin(doTransfer);
   }
   document.addEventListener('DOMContentLoaded', function () {
     var all = document.getElementById('ordersSelectAll');
