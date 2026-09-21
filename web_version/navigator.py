@@ -35,14 +35,19 @@ class NavigatorClient:
         )
         self._cache = {}
 
-    def _cached(self, key, ttl, builder):
-        """Кэш с TTL для медленных read-методов (API отвечает ~5 c на запрос)."""
+    def _cached(self, key, ttl, builder, cache_empty=True):
+        """Кэш с TTL для медленных read-методов (API отвечает ~5 c на запрос).
+
+        cache_empty=False — пустой результат не сохраняется, чтобы разовый
+        сбой/не тот год не «залипал» на весь TTL (важно для посещаемости).
+        """
         now = time.time()
         hit = self._cache.get(key)
         if hit and now - hit[0] < ttl:
             return hit[1]
         value = builder()
-        self._cache[key] = (now, value)
+        if cache_empty or value:
+            self._cache[key] = (now, value)
         return value
 
     def _invalidate(self, *prefixes):
@@ -325,7 +330,7 @@ class NavigatorClient:
             items = self._data(b) or []
             return items
 
-        return self._cached(f"members:{group_id}:{month}:{self.year}", 300, build)
+        return self._cached(f"members:{group_id}:{month}:{self.year}", 300, build, cache_empty=False)
 
     @staticmethod
     def attendance_field_key(date_str, year):
@@ -388,7 +393,7 @@ class NavigatorClient:
             )
             return self._data(b) or []
 
-        return self._cached(f"dates:{group_id}:{month}:{self.year}", 300, build)
+        return self._cached(f"dates:{group_id}:{month}:{self.year}", 300, build, cache_empty=False)
 
     def save_attendance(self, date, group_id, kid_id, value):
         """Проставить посещаемость ребёнка за дату.
@@ -420,7 +425,7 @@ class NavigatorClient:
             )
             return self._data(b) or []
 
-        return self._cached(f"lessons:{group_id}:{month}", 300, build)
+        return self._cached(f"lessons:{group_id}:{month}", 300, build, cache_empty=False)
 
     def save_lesson(self, date, group_id, theme, types, description=""):
         """Создание/обновление занятия (КТП). types — список строк вида ['9732']."""
@@ -721,6 +726,27 @@ class NavigatorClient:
         b = self._post("/api/cancelRequest", payload)
         self._invalidate("orders:")
         return self._data(b)
+
+    def deduct_order(self, order_id, kid_id, group_id, date_signing, date_start,
+                     decree_number, reason_id):
+        """Отчислить ребёнка из группы (study -> deduct).
+
+        POST /api/edu-history/kids/deduct (как в оригинальном интерфейсе).
+        Причина (state_reason) обязательна — из словаря navOrderCancelReason
+        со статусом ``study``.
+        """
+        payload = {
+            "decree_number": decree_number,
+            "date_signing": date_signing,
+            "date_start": date_start,
+            "state_reason": int(reason_id),
+            "kid_ids": [str(kid_id)],
+            "orders": [str(order_id)],
+            "group_id": str(group_id),
+        }
+        b = self._post("/api/edu-history/kids/deduct", payload)
+        self._invalidate("orders:")
+        return b
 
     # ------------------------------------------------------------------ справочники
     def get_dictionary(self, name, params=None):

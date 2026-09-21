@@ -397,6 +397,7 @@ def group_page(group_id):
         "sport_stage": dict_map(client.get_dictionary("sportStages")),
     }
     cancel_reasons = client.get_cancel_reasons()
+    deduct_reasons = client.get_cancel_reasons("study")
     subjects = client.get_event_group_subjects(group_id)
 
     all_states = client.get_status_dictionary()
@@ -416,6 +417,7 @@ def group_page(group_id):
         all_states=all_states,
         dictionaries=dictionaries,
         cancel_reasons=cancel_reasons,
+        deduct_reasons=deduct_reasons,
         subjects=subjects,
         tab=tab,
         month=month,
@@ -797,6 +799,87 @@ def cancel_order(group_id):
     return redirect(url_for("group_page", group_id=group_id, tab="orders"))
 
 
+def _fmt_dt(d):
+    """'YYYY-MM-DD' -> 'YYYY-MM-DD 00:00:00' (формат API для приказов)."""
+    d = (d or "").strip()
+    return d + " 00:00:00" if len(d) == 10 else d
+
+
+@app.route("/group/<int:group_id>/orders/bulk", methods=["POST"])
+@login_required
+def bulk_orders(group_id):
+    """Массовые действия с заявками группы:
+    подтверждение (initial->approve), принятие на обучение (approve->study)
+    и отчисление (study->deduct).
+
+    Причина (reason_id) обязательна только для отчисления. Для подтверждения и
+    принятия причина не запрашивается.
+    """
+    client = get_client()
+    data = request.get_json(silent=True) or {}
+    action = (data.get("action") or "").strip()
+    items = data.get("orders") or []
+    if not isinstance(items, list) or not items:
+        return jsonify({"ok": False, "error": "Не выбраны заявки"}), 400
+
+    results = []
+    done = 0
+
+    if action == "approve":
+        for it in items:
+            oid = str(it.get("order_id") or "")
+            if not oid:
+                continue
+            try:
+                client.approve_order(oid)
+                results.append({"order_id": oid, "ok": True})
+                done += 1
+            except Exception as e:
+                results.append({"order_id": oid, "ok": False, "error": str(e)})
+
+    elif action == "accept":
+        date_signing = (data.get("date_signing") or "").strip()
+        date_start = (data.get("date_start") or "").strip()
+        decree_number = (data.get("decree_number") or "").strip()
+        if not (date_signing and date_start and decree_number):
+            return jsonify({"ok": False, "error": "Нужны дата приказа, дата начала и номер приказа"}), 400
+        for it in items:
+            oid = str(it.get("order_id") or "")
+            if not oid:
+                continue
+            try:
+                client.accept_to_study(oid, date_signing, date_start, decree_number)
+                results.append({"order_id": oid, "ok": True})
+                done += 1
+            except Exception as e:
+                results.append({"order_id": oid, "ok": False, "error": str(e)})
+
+    elif action == "deduct":
+        decree_number = (data.get("decree_number") or "").strip()
+        date_signing = (data.get("date_signing") or "").strip()
+        date_start = (data.get("date_start") or "").strip()
+        reason_id = (data.get("reason_id") or "").strip()
+        if not (decree_number and date_signing and date_start and reason_id):
+            return jsonify({"ok": False, "error": "Нужны номер и дата приказа, дата отчисления и причина"}), 400
+        for it in items:
+            oid = str(it.get("order_id") or "")
+            kid_id = str(it.get("kid_id") or "")
+            if not oid or not kid_id:
+                continue
+            try:
+                client.deduct_order(oid, kid_id, group_id, _fmt_dt(date_signing),
+                                    _fmt_dt(date_start), decree_number, reason_id)
+                results.append({"order_id": oid, "ok": True})
+                done += 1
+            except Exception as e:
+                results.append({"order_id": oid, "ok": False, "error": str(e)})
+    else:
+        return jsonify({"ok": False, "error": "Неизвестное действие"}), 400
+
+    return jsonify({"ok": True, "done": done,
+                    "failed": len(results) - done, "results": results})
+
+
 # ------------------------------------------------------------------ программы
 @app.route("/programs")
 @login_required
@@ -1127,6 +1210,7 @@ def forced_search():
                 "id": g.get("id"),
                 "name": g.get("name"),
                 "program_name": g.get("program_name"),
+                "teacher": g.get("teacher"),
                 "event_id": g.get("event_id"),
             } for g in matched],
             "error": None,
@@ -1137,6 +1221,7 @@ def forced_search():
                         "id": g.get("id"),
                         "name": g.get("name"),
                         "program_name": g.get("program_name"),
+                        "teacher": g.get("teacher"),
                         "event_id": g.get("event_id"),
                     } for g in all_groups]})
 

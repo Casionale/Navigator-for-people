@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=12">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=15">
 </head>
 <body>
 {% if current_user %}
@@ -191,6 +191,7 @@
         html += '<div class="contact-item kid-result">' +
           '<div class="rep"><strong>' + esc2(k.fio || '') + '</strong></div>' +
           '<div class="rep-contacts">' + esc2(k.birthday || '') + ' · ' + esc2(k.approve_org_caption || '') + '</div>' +
+          '<div class="mt-sm">' + certInfo(k) + '</div>' +
           '<div style="margin-top:6px;">' + (KS_SOURCE === 'preview' ?
             '<button class="btn btn-sm btn-primary" data-use="1" data-kid="' + esc2(k.id) + '" data-fio="' + esc2(k.fio) + '" data-su="' + esc2(k.site_user_id || '') + '">Выбрать → заявка</button>'
             : '<span class="small muted">id ' + esc2(k.id) + '</span>') +
@@ -209,6 +210,11 @@
   });
   function esc2(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function certInfo(k) {
+    var c = (k && k.certificate_number != null) ? String(k.certificate_number).trim() : '';
+    if (c) return '<span class="tag tag-ok">Сертификат: ' + esc2(c) + '</span>';
+    return '<span class="tag tag-muted">Сертификат: отсутствует</span>';
   }
 </script>
 <script>
@@ -289,13 +295,15 @@
 
       <div id="forcedLoader" style="display:none;" class="center muted mt">Поиск…</div>
       <div id="forcedGlobal" style="display:none;" class="mt">
-        <label class="small"><b>Группа по умолчанию</b> <span class="muted">(для строк без своей группы)</span>:
-          <select id="forcedGlobalGroup" style="max-width:100%;"></select>
-        </label>
+        <label class="small"><b>Группа по умолчанию</b> <span class="muted">(для строк без своей группы)</span></label>
+        <div id="forcedGlobalChip" class="mt-sm" style="display:none;"></div>
       </div>
       <div id="forcedGroupSearch" style="display:none;" class="mt">
-        <input type="text" id="forcedGroupFilter" placeholder="🔍 Поиск группы (название группы или программы)…" style="width:100%;box-sizing:border-box;">
-        <div class="small muted">Фильтрует группы во всей форме. Начните вводить — совпадения подсветятся.</div>
+        <div class="group-picker">
+          <input type="text" id="forcedGroupFilter" placeholder="🔍 Поиск группы: название, программа, педагог, №…" autocomplete="off">
+          <div id="forcedGroupResults" class="group-results" style="display:none;"></div>
+        </div>
+        <div class="small muted">Начните вводить — выберите группу из списка, и она станет группой по умолчанию. Списки групп у каждой строки тоже фильтруются по этому запросу.</div>
       </div>
       <div id="forcedLines" class="mt"></div>
       <div id="forcedFooter" style="display:none;" class="mt">
@@ -333,7 +341,7 @@
 <script>
   // ——— Принудительная заявка детей в группу (админ) ———
   var FORCED_ADMIN = { email: {{ admin_email|tojson }}, name: {{ admin_name|tojson }} };
-  var FORCED = { allGroups: [], state: [], filter: '' };
+  var FORCED = { allGroups: [], state: [], filter: '', globalGroupId: '' };
 
   // ——— статус-бар администратора ———
   function renderAdminBar() {
@@ -404,9 +412,10 @@
     document.getElementById('forcedGlobal').style.display = 'none';
     document.getElementById('forcedGroupSearch').style.display = 'none';
     document.getElementById('forcedFooter').style.display = 'none';
-    document.getElementById('forcedGlobalGroup').innerHTML = '';
     document.getElementById('forcedGroupFilter').value = '';
-    FORCED = { allGroups: [], state: [], filter: '' };
+    document.getElementById('forcedGroupResults').style.display = 'none';
+    setGlobalGroup('');
+    FORCED = { allGroups: [], state: [], filter: '', globalGroupId: '' };
     renderAdminBar();
   }
   function closeForced() {
@@ -421,20 +430,24 @@
     };
     reader.readAsText(inp.files[0], 'utf-8');
   }
+  function groupHay(g) {
+    return ((g.name || '') + ' ' + (g.program_name || '') + ' ' + (g.teacher || '') + ' #' + (g.id || '')).toLowerCase();
+  }
+  function filterGroups(query, groups) {
+    var src = groups || FORCED.allGroups || [];
+    var q = (query || '').trim().toLowerCase();
+    if (!q) return src;
+    return src.filter(function (g) { return groupHay(g).indexOf(q) >= 0; });
+  }
   // построить <option> групп (сгруппировано по программам), с учётом фильтра
   function buildGroupOptions(groups, filter) {
-    filter = (filter || '').trim().toLowerCase();
-    if (!groups || !groups.length) return '<option value="">— группы не найдены —</option>';
+    var list = filterGroups(filter, groups);
+    if (!list.length) return '<option value="">— нет групп по фильтру —</option>';
     var byProg = {};
-    var count = 0;
-    groups.forEach(function (g) {
-      var hay = ((g.name || '') + ' ' + (g.program_name || '')).toLowerCase();
-      if (filter && hay.indexOf(filter) < 0) return;
+    list.forEach(function (g) {
       var p = g.program_name || ('Программа #' + g.event_id);
       (byProg[p] = byProg[p] || []).push(g);
-      count++;
     });
-    if (!count) return '<option value="">— нет групп по фильтру —</option>';
     var html = '<option value="">— группа по умолчанию (не выбрана) —</option>';
     Object.keys(byProg).sort().forEach(function (p) {
       html += '<optgroup label="' + esc2(p) + '">';
@@ -445,14 +458,8 @@
     });
     return html;
   }
-  // перестроить все селекторы групп (общий + построчные) с текущим фильтром
+  // перестроить построчные селекторы групп с текущим фильтром
   function refreshGroupSelects() {
-    var g = document.getElementById('forcedGlobalGroup');
-    if (g) {
-      var cur = g.value;
-      g.innerHTML = buildGroupOptions(FORCED.allGroups, FORCED.filter);
-      if (cur) g.value = cur;
-    }
     Array.prototype.forEach.call(document.querySelectorAll('.frc-group'), function (sel) {
       var i = parseInt(sel.getAttribute('data-i'), 10);
       var st = FORCED.state[i];
@@ -462,6 +469,49 @@
       sel.innerHTML = buildGroupOptions(src, FORCED.filter);
       if (cur2) sel.value = cur2;
     });
+  }
+  // выпадающий список совпадений групп (клик — выбрать группой по умолчанию)
+  function renderGroupResults() {
+    var box = document.getElementById('forcedGroupResults');
+    if (!box) return;
+    var q = document.getElementById('forcedGroupFilter').value;
+    if (!q.trim()) { box.style.display = 'none'; box.innerHTML = ''; return; }
+    var list = filterGroups(q, FORCED.allGroups);
+    if (!list.length) { box.innerHTML = '<div class="group-result-item muted">Ничего не найдено</div>'; box.style.display = 'block'; return; }
+    var shown = list.slice(0, 80);
+    var html = '';
+    shown.forEach(function (g) {
+      html += '<div class="group-result-item" data-gid="' + esc2(g.id) + '">' +
+        '<b>' + esc2(g.name || ('#' + g.id)) + '</b>' +
+        '<span class="muted"> — ' + esc2(g.program_name || '') + '</span>' +
+        (g.teacher ? '<span class="muted"> · ' + esc2(g.teacher) + '</span>' : '') +
+        ' <span class="muted">#' + esc2(g.id) + '</span></div>';
+    });
+    if (list.length > shown.length) html += '<div class="group-result-item muted">…показано ' + shown.length + ' из ' + list.length + '</div>';
+    box.innerHTML = html;
+    box.style.display = 'block';
+    box.querySelectorAll('[data-gid]').forEach(function (el) {
+      el.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        setGlobalGroup(el.getAttribute('data-gid'));
+        box.style.display = 'none';
+        document.getElementById('forcedGroupFilter').value = '';
+        FORCED.filter = '';
+        refreshGroupSelects();
+      });
+    });
+  }
+  function setGlobalGroup(gid) {
+    FORCED.globalGroupId = gid || '';
+    var chip = document.getElementById('forcedGlobalChip');
+    if (!chip) return;
+    if (!gid) { chip.style.display = 'none'; chip.innerHTML = ''; return; }
+    var g = null;
+    (FORCED.allGroups || []).forEach(function (x) { if (String(x.id) === String(gid)) g = x; });
+    var label = g ? ((g.name || '') + ' — ' + (g.program_name || '') + ' (#' + g.id + ')') : ('#' + gid);
+    chip.style.display = 'block';
+    chip.innerHTML = '<span class="tag tag-ok">Группа по умолчанию: ' + esc2(label) + '</span> ' +
+      '<button type="button" class="btn btn-sm" onclick="setGlobalGroup(\'\')">Сбросить</button>';
   }
   function runForcedSearch() {
     var text = document.getElementById('forcedText').value.trim();
@@ -488,8 +538,6 @@
         };
       });
 
-      var gsel = document.getElementById('forcedGlobalGroup');
-      gsel.innerHTML = buildGroupOptions(FORCED.allGroups, FORCED.filter);
       document.getElementById('forcedGlobal').style.display = 'block';
       document.getElementById('forcedGroupSearch').style.display = 'block';
 
@@ -529,7 +577,7 @@
         var cand = st.cands[cid];
         empty = false;
         html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="' + esc2(cand.id) + '" data-su="' + esc2(cand.site_user_id || '') + '" ' + (st.kid_id === cand.id ? 'checked' : '') + '> ' +
-                '<b>' + esc2(cand.fio || '') + '</b> <span class="muted">' + esc2(cand.birthday || '') + ' · ' + esc2(cand.approve_org_caption || '') + '</span></label>';
+                '<b>' + esc2(cand.fio || '') + '</b> <span class="muted">' + esc2(cand.birthday || '') + ' · ' + esc2(cand.approve_org_caption || '') + '</span> ' + certInfo(cand) + '</label>';
       }
       if (empty) html += '<div class="small muted">— детей не найдено —</div>';
       html += '</div>';
@@ -560,7 +608,7 @@
     var orders = [];
     FORCED.state.forEach(function (st) {
       if (!st.kid_id || !st.site_user_id) return; // ребёнок не выбран — пропуск (как -1 в помойке)
-      var gid = st.group_id || document.getElementById('forcedGlobalGroup').value;
+      var gid = st.group_id || FORCED.globalGroupId;
       if (!gid) return;
       orders.push({ kid_id: st.kid_id, site_user_id: st.site_user_id, group_id: gid, fio: st.fio });
     });
@@ -593,7 +641,7 @@
     });
   }
 
-  // ——— поиск по группам: фильтрует все селекторы групп в форме ———
+  // ——— поиск по группам: выпадающий список + фильтр построчных селекторов ———
   (function () {
     var inp = document.getElementById('forcedGroupFilter');
     if (!inp) return;
@@ -604,7 +652,15 @@
       timer = setTimeout(function () {
         FORCED.filter = val;
         refreshGroupSelects();
-      }, 180);
+        renderGroupResults();
+      }, 160);
+    });
+    // закрыть список при клике вне
+    document.addEventListener('mousedown', function (e) {
+      var box = document.getElementById('forcedGroupResults');
+      if (!box || box.style.display === 'none') return;
+      if (e.target === inp || box.contains(e.target)) return;
+      box.style.display = 'none';
     });
   })();
 

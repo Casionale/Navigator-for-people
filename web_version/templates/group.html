@@ -202,17 +202,35 @@
 {% elif tab == 'orders' %}
 <div class="panel mb">
   <div class="panel-title">Заявки группы <span class="badge">{{ orders|length }}</span></div>
+
+  {% if orders %}
+  <div class="bulk-bar">
+    <span class="small muted">Выбрано: <b id="bulkCount">0</b></span>
+    <div class="row" style="gap:6px;margin-left:auto;">
+      <button type="button" class="btn btn-ok btn-sm" onclick="bulkApprove()">Подтвердить</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="openBulkAccept()">Принять на обучение</button>
+      <button type="button" class="btn btn-danger btn-sm" onclick="openBulkDeduct()">Отчислить</button>
+    </div>
+  </div>
+  <div class="small muted mb">Отметьте заявки галочками (значок ☑ в шапке — выбрать всех) и выберите общее действие. Причина запрашивается только для отчисления.</div>
+  {% endif %}
+
   <div class="attendance-grid">
     <table>
       <thead>
-        <tr><th>Ребёнок</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th><th></th></tr>
+        <tr><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th><th></th></tr>
       </thead>
       <tbody id="ordersBody">
         {% for o in orders %}
-        <tr data-state="{{ o.get('state') or o.get('state_grid') }}">
+        {% set st = o.get('state') or o.get('state_grid') %}
+        {% set can = st in ('initial', 'approve', 'study') %}
+        <tr data-state="{{ st }}">
+          <td class="sel-col">
+            <input type="checkbox" class="order-check" value="{{ o.get('id') }}"
+                   data-kid="{{ o.get('kid_id') }}" data-state="{{ st }}"{{ '' if can else ' disabled' }}>
+          </td>
           <td>{{ o.get('kid_last_name','') }} {{ o.get('kid_first_name','') }} {{ o.get('kid_patro_name','') }}</td>
           <td>
-            {% set st = o.get('state') or o.get('state_grid') %}
             {% if st == 'approve' %}<span class="tag tag-warn">Подтверждена</span>
             {% elif st == 'study' %}<span class="tag tag-ok">Зачислен</span>
             {% elif st == 'initial' %}<span class="tag tag-accent">Новая</span>
@@ -223,7 +241,6 @@
           <td>{{ o.get('fact_academic_year_id') or o.get('academic_year_id') }}</td>
           <td>{{ (o.get('created_ts') or '')[:10] }}</td>
           <td class="num" style="text-align:left;">
-            {% set st = o.get('state') or o.get('state_grid') %}
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
             {% if st == 'initial' %}
               <form method="post" action="{{ url_for('approve_order', group_id=group['id']) }}" style="display:inline;">
@@ -243,7 +260,7 @@
             {% if st in ('initial', 'approve') %}
               <form method="post" action="{{ url_for('cancel_order', group_id=group['id']) }}" style="display:inline-flex;gap:6px;align-items:center;">
                 <input type="hidden" name="order_id" value="{{ o.get('id') }}">
-                <select name="reason_id" required title="Причина отмены">
+                <select name="reason_id" required title="Причина отмены (отказа)">
                   <option value="">— причина —</option>
                   {% for r in cancel_reasons %}
                     <option value="{{ r.get('id') }}">{{ r.get('name') }}</option>
@@ -259,6 +276,63 @@
       </tbody>
     </table>
     {% if not orders %}<div class="empty">Заявок нет.</div>{% endif %}
+  </div>
+</div>
+
+<!-- модалка: массовое принятие на обучение -->
+<div class="modal-backdrop" id="bulkAcceptModal" style="display:none;">
+  <div class="modal" style="width:min(480px,100%);">
+    <div class="modal-head">
+      <h3 style="margin:0;">Принять на обучение</h3>
+      <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Выбрано: <b id="bulkAcceptCount">0</b>. Причина не требуется — только реквизиты приказа.</div>
+      <div class="field"><label>Дата приказа</label><input type="date" id="bulkAcceptSign" style="width:100%;"></div>
+      <div class="field"><label>Дата начала</label><input type="date" id="bulkAcceptStart" style="width:100%;"></div>
+      <div class="field"><label>№ приказа</label><input type="text" id="bulkAcceptDecree" style="width:100%;"></div>
+      <div class="row" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Отмена</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="submitBulkAccept()">Принять</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- модалка: массовое отчисление -->
+<div class="modal-backdrop" id="bulkDeductModal" style="display:none;">
+  <div class="modal" style="width:min(520px,100%);">
+    <div class="modal-head">
+      <h3 style="margin:0;">Отчислить</h3>
+      <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb">Выбрано: <b id="bulkDeductCount">0</b>. Причина обязательна.</div>
+      <div class="field"><label>№ приказа</label><input type="text" id="bulkDeductDecree" style="width:100%;"></div>
+      <div class="field"><label>Дата приказа</label><input type="date" id="bulkDeductSign" style="width:100%;"></div>
+      <div class="field"><label>Дата отчисления</label><input type="date" id="bulkDeductStart" style="width:100%;"></div>
+      <div class="field"><label>Причина</label>
+        <select id="bulkDeductReason" style="width:100%;">
+          <option value="">— причина —</option>
+          {% for r in deduct_reasons %}
+            <option value="{{ r.get('id') }}">{{ r.get('name') }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="row" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeBulkModals()">Отмена</button>
+        <button type="button" class="btn btn-sm btn-danger" onclick="submitBulkDeduct()">Отчислить</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- оверлей: операция выполняется -->
+<div class="busy-overlay" id="bulkBusy" style="display:none;">
+  <div class="busy-box">
+    <div class="spinner"></div>
+    <div id="bulkBusyText">Идёт операция, подождите…</div>
+    <div class="progress"><div class="progress-bar"></div></div>
   </div>
 </div>
 
@@ -823,5 +897,105 @@
       if (schedGF) { schedGF.style.opacity = on ? '1' : '.45'; schedGF.style.pointerEvents = on ? 'auto' : 'none'; }
     });
   }
+
+  // ——— массовые действия с заявками ———
+  function bulkSelected() {
+    var out = [];
+    document.querySelectorAll('#ordersBody .order-check:checked').forEach(function (cb) {
+      out.push({ order_id: cb.value, kid_id: cb.getAttribute('data-kid'), state: cb.getAttribute('data-state') });
+    });
+    return out;
+  }
+  function bulkByState(state) {
+    return bulkSelected().filter(function (x) { return x.state === state; });
+  }
+  function bulkUpdateCount() {
+    var el = document.getElementById('bulkCount');
+    if (el) el.textContent = bulkSelected().length;
+    var all = document.getElementById('ordersSelectAll');
+    if (all) {
+      var boxes = document.querySelectorAll('#ordersBody .order-check:not([disabled])');
+      var checked = document.querySelectorAll('#ordersBody .order-check:not([disabled]):checked');
+      all.checked = boxes.length > 0 && boxes.length === checked.length;
+      all.indeterminate = checked.length > 0 && checked.length < boxes.length;
+    }
+  }
+  function closeBulkModals() {
+    var a = document.getElementById('bulkAcceptModal'); if (a) a.style.display = 'none';
+    var d = document.getElementById('bulkDeductModal'); if (d) d.style.display = 'none';
+  }
+  function bulkBusy(show, text) {
+    var ov = document.getElementById('bulkBusy');
+    if (!ov) return;
+    if (text) { var t = document.getElementById('bulkBusyText'); if (t) t.textContent = text; }
+    ov.style.display = show ? 'flex' : 'none';
+  }
+  function bulkPost(payload, label) {
+    bulkBusy(true, label + ': идёт операция, подождите…');
+    fetch('/group/' + GROUP_ID + '/orders/bulk', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      bulkBusy(false);
+      if (!res.ok) { alert(res.error || 'Ошибка'); return; }
+      var extra = res.failed ? ('\nОшибок: ' + res.failed) : '';
+      alert(label + ': выполнено ' + res.done + extra);
+      window.location.reload();
+    }).catch(function () { bulkBusy(false); alert('Ошибка сети'); });
+  }
+  function bulkApprove() {
+    var items = bulkByState('initial');
+    if (!items.length) { alert('Отметьте заявки со статусом «Новая»'); return; }
+    if (!confirm('Подтвердить ' + items.length + ' заявок?')) return;
+    bulkPost({ action: 'approve', orders: items }, 'Подтверждение');
+  }
+  function openBulkAccept() {
+    var items = bulkByState('approve');
+    if (!items.length) { alert('Отметьте заявки со статусом «Подтверждена»'); return; }
+    document.getElementById('bulkAcceptCount').textContent = items.length;
+    document.getElementById('bulkAcceptModal').style.display = 'flex';
+  }
+  function submitBulkAccept() {
+    var items = bulkByState('approve');
+    var sign = document.getElementById('bulkAcceptSign').value;
+    var start = document.getElementById('bulkAcceptStart').value;
+    var dec = document.getElementById('bulkAcceptDecree').value.trim();
+    if (!sign || !start || !dec) { alert('Заполните дату приказа, дату начала и № приказа'); return; }
+    closeBulkModals();
+    bulkPost({ action: 'accept', orders: items, date_signing: sign, date_start: start, decree_number: dec }, 'Принятие на обучение');
+  }
+  function openBulkDeduct() {
+    var items = bulkByState('study');
+    if (!items.length) { alert('Отметьте заявки со статусом «Зачислен»'); return; }
+    document.getElementById('bulkDeductCount').textContent = items.length;
+    document.getElementById('bulkDeductModal').style.display = 'flex';
+  }
+  function submitBulkDeduct() {
+    var items = bulkByState('study');
+    var dec = document.getElementById('bulkDeductDecree').value.trim();
+    var sign = document.getElementById('bulkDeductSign').value;
+    var start = document.getElementById('bulkDeductStart').value;
+    var reason = document.getElementById('bulkDeductReason').value;
+    if (!dec || !sign || !start || !reason) { alert('Заполните номер и даты приказа, выберите причину отчисления'); return; }
+    if (!confirm('Отчислить ' + items.length + ' детей?')) return;
+    closeBulkModals();
+    bulkPost({ action: 'deduct', orders: items, decree_number: dec, date_signing: sign, date_start: start, reason_id: reason }, 'Отчисление');
+  }
+  document.addEventListener('DOMContentLoaded', function () {
+    var all = document.getElementById('ordersSelectAll');
+    if (all) {
+      all.addEventListener('change', function () {
+        var on = all.checked;
+        document.querySelectorAll('#ordersBody .order-check:not([disabled])').forEach(function (cb) { cb.checked = on; });
+        all.indeterminate = false;
+        bulkUpdateCount();
+      });
+    }
+    document.querySelectorAll('#ordersBody .order-check').forEach(function (cb) {
+      cb.addEventListener('change', bulkUpdateCount);
+    });
+    bulkUpdateCount();
+  });
 </script>
 {% endblock %}

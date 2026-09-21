@@ -357,6 +357,24 @@ th.day-toggle .matrix-wd { color: var(--accent); }
 .cand-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 9px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel2); cursor: pointer; font-size: 13px; }
 .cand-item:hover { border-color: var(--accent); }
 .cand-item input { accent-color: var(--accent); }
+.mt-sm { margin-top: 4px; }
+.group-picker { position: relative; }
+.group-picker input { width: 100%; box-sizing: border-box; }
+.group-results { position: absolute; left: 0; right: 0; top: 100%; z-index: 20; max-height: 280px; overflow: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius-sm); box-shadow: var(--shadow); margin-top: 2px; }
+.group-result-item { padding: 6px 10px; font-size: 13px; cursor: pointer; border-bottom: 1px solid var(--border); }
+.group-result-item:last-child { border-bottom: none; }
+.group-result-item:hover { background: var(--accent-soft); }
+.group-result-item.muted, .group-result-item.muted:hover { color: var(--muted); cursor: default; background: none; }
+.bulk-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel2); }
+.sel-col { width: 34px; text-align: center; }
+.order-check { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; vertical-align: middle; }
+.busy-overlay { position: fixed; inset: 0; z-index: 1100; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.45); }
+.busy-box { min-width: 280px; max-width: 90vw; padding: 24px 28px; text-align: center; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 12px 40px rgba(0,0,0,.25); }
+.busy-box .spinner { width: 34px; height: 34px; margin: 0 auto 12px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: nav-spin .8s linear infinite; }
+.busy-box .progress { height: 6px; margin-top: 14px; overflow: hidden; background: var(--panel2); border-radius: 999px; }
+.busy-box .progress-bar { height: 100%; width: 40%; background: var(--accent); border-radius: 999px; animation: nav-indeterminate 1.2s ease-in-out infinite; }
+@keyframes nav-spin { to { transform: rotate(360deg); } }
+@keyframes nav-indeterminate { 0% { margin-left: -40%; } 100% { margin-left: 100%; } }
 .contact-item { border: 1px solid var(--border); background: var(--panel2); border-radius: var(--radius-sm); padding: 12px 14px; line-height: 1.5; }
 .contact-item .rep { font-size: 14px; }
 .contact-item .rep-contacts { color: var(--muted); font-size: 13px; margin: 2px 0; word-break: break-word; }
