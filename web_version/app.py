@@ -3,6 +3,7 @@
 import functools
 import os
 import json
+import re
 import urllib.request
 import urllib.error
 from flask import (
@@ -572,7 +573,9 @@ def build_attendance_matrix(client, members, dates, month=None):
             "name": f"{m.get('kid_last_name','')} {m.get('kid_first_name','')} {m.get('kid_patro_name','')}".strip(),
             "birthday": m.get("kid_birthday"),
             "age": m.get("kid_age"),
+            "active": int(m.get("type_active", 1)) == 1,
             "type_code": m.get("type_code"),
+            "reason": _plain(m.get("type_details") or ""),
             "cells": cells,
         })
     return {"cols": cols, "rows": rows}
@@ -968,6 +971,7 @@ def orders():
     # навбар ИЛИ через селект года на этой странице (оба идут через /set_year)
     orders = client.get_orders(length=limit, **kwargs)
     all_states = client.get_status_dictionary()
+    group_names = _group_names(client)
     # число «новых» (статус initial) за год сессии — для счётчика в навбаре
     try:
         initial_count = len(client.get_orders(state="initial", academic_year=client.year, length=500))
@@ -983,6 +987,7 @@ def orders():
         cur_limit=limit,
         cancel_reasons=client.get_cancel_reasons("initial"),
         initial_count=initial_count,
+        group_names=group_names,
     )
 
 
@@ -1016,8 +1021,12 @@ def order_detail(order_id):
     reasons = client.get_cancel_reasons(state) if state in ("initial", "approve") else client.get_cancel_reasons("initial")
     # полные контакты родителя (без маски) — отдельный запрос siteuser по site_user_id
     site_user = client.get_site_user(order.get("site_user_id"))
+    gid = order.get("fact_group_id") or order.get("group_id")
+    gn = _group_names(client).get(str(gid)) if gid else None
     return jsonify({"ok": True, "order": order, "state": state,
-                    "cancel_reasons": reasons, "site_user": site_user})
+                    "cancel_reasons": reasons, "site_user": site_user,
+                    "group_name": gn["name"] if gn else None,
+                    "group_program": gn["program"] if gn else None})
 
 
 @app.route("/orders/<int:order_id>/approve", methods=["POST"])
@@ -1233,6 +1242,25 @@ def search_kid():
 # ------------------------------------------------------------------ функции (перенесено из pomoika.py)
 def _kid_full(o):
     return " ".join(str(o.get(k) or "") for k in ("kid_last_name", "kid_first_name", "kid_patro_name")).strip()
+
+
+def _plain(s):
+    """Текст без HTML-тегов (type_details навигатора содержит ссылки)."""
+    return re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", s or "")).strip()
+
+
+def _group_names(client):
+    """{str(group_id): {name, program}} для всех групп года (имя + программа)."""
+    try:
+        return {
+            str(g.get("id")): {
+                "name": g.get("name") or f"#{g.get('id')}",
+                "program": g.get("program_name") or "",
+            }
+            for g in client.get_groups()
+        }
+    except NavigatorError:
+        return {}
 
 
 @app.route("/group/<int:group_id>/members")

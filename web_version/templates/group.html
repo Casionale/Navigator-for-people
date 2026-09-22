@@ -105,7 +105,7 @@
         </tr>
       </thead>
       <tbody>
-        {% for r in attendance_matrix.rows %}
+        {% for r in attendance_matrix.rows if r.active %}
         <tr>
           <td class="matrix-name">
             {{ r.name }}
@@ -132,6 +132,26 @@
   </div>
   {% if not attendance_matrix.cols %}
     <div class="empty mt">На этот месяц нет ни дат по расписанию, ни отметок посещаемости.</div>
+  {% endif %}
+
+  {% set archived = attendance_matrix.rows | selectattr('active', 'equalto', False) | list %}
+  {% if archived %}
+  <details class="archive-block">
+    <summary>Архив <span class="badge">{{ archived|length }}</span></summary>
+    <div class="attendance-grid">
+      <table class="matrix">
+        <thead><tr><th>Ребёнок</th><th>Причина записи в архив</th></tr></thead>
+        <tbody>
+          {% for r in archived %}
+          <tr>
+            <td class="matrix-name">{{ r.name }}</td>
+            <td class="small muted">{{ r.reason or 'Не указана' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
   {% endif %}
 </div>
 
@@ -179,7 +199,7 @@
       <div class="field" style="margin:0;"><label>Дата</label><input type="date" name="lesson_date" value="{{ month ~ '-01' }}" required></div>
       <div class="field" style="margin:0;"><label>Тема</label><input type="text" name="theme" required style="min-width:220px;"></div>
       <div class="field" style="margin:0;"><label>Тип</label>
-        <select name="types" multiple>
+        <select name="types" style="width:100%;">
           {% if subjects %}
             {% for s in subjects %}
               <option value="{{ s.get('id') }}">{{ s.get('name') or s.get('theme') or s.get('id') }}</option>
@@ -340,7 +360,7 @@
       <div class="panel" id="bulkTransferAdminBar" style="padding:8px 10px;margin-bottom:10px;"></div>
       <div class="field"><label>Целевая группа</label>
         <input type="text" id="bulkTransferFilter" placeholder="Фильтр по названию/программе/№" oninput="renderTransferGroups()">
-        <select id="bulkTransferGroup" size="6" style="width:100%;margin-top:6px;" onchange="onTransferGroupChange()"></select>
+        <select id="bulkTransferGroup" style="width:100%;margin-top:6px;" onchange="onTransferGroupChange()"></select>
       </div>
       <div class="field"><label>Источник финансирования</label>
         <select id="bulkTransferFinancing" style="width:100%;"><option value="">— выберите группу —</option></select>

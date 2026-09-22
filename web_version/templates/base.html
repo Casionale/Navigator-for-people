@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=16">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=17">
 </head>
 <body>
 <div id="jsErrorBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;padding:8px 12px;font:12px/1.4 monospace;white-space:pre-wrap;"></div>
@@ -116,6 +116,63 @@
       p.appendChild(b);
     });
   });
+</script>
+<script>
+  // ——— Сортировка таблиц по всем столбцам (клик по заголовку) ———
+  // Не применяется к классам .no-sort, .matrix и .sortable-table
+  // (последний уже сортируется своим скриптом на главной).
+  (function () {
+    function cellVal(td) {
+      var t = (td ? td.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase();
+      var n = parseFloat(String(t).replace(',', '.').replace(/[^0-9.\-]/g, ''));
+      return { t: t, n: isNaN(n) ? null : n };
+    }
+    function sortableTable(tbl) {
+      if (!tbl || tbl.classList.contains('no-sort') ||
+          tbl.classList.contains('matrix') || tbl.classList.contains('sortable-table')) return;
+      var tbody = tbl.tBodies && tbl.tBodies[0];
+      var head = tbl.querySelector('thead');
+      if (!tbody || !head) return;
+      var ths = Array.prototype.slice.call(head.querySelectorAll('th'));
+      var state = {};
+      ths.forEach(function (th, col) {
+        th.title = 'Сортировать по столбцу';
+        th.style.cursor = 'pointer';
+        th.classList.add('sortable');
+        th.addEventListener('click', function (e) {
+          var t = e.target;
+          if (t && (t.tagName === 'INPUT' || t.tagName === 'BUTTON' ||
+                    t.tagName === 'SELECT' || t.tagName === 'A')) return;
+          var dir = state[col] === 'asc' ? 'desc' : 'asc';
+          state = {}; state[col] = dir;
+          // строки, прикрепляя к каждой раскрытый detail-row
+          var items = [];
+          for (var i = 0; i < tbody.rows.length; i++) {
+            var row = tbody.rows[i];
+            if (row.classList.contains('detail-row')) continue;
+            var sticky = null;
+            var ns = row.nextElementSibling;
+            if (ns && ns.classList.contains('detail-row')) { sticky = ns; i++; }
+            items.push({ row: row, sticky: sticky });
+          }
+          items.sort(function (a, b) {
+            var x = cellVal(a.row.cells[col]);
+            var y = cellVal(b.row.cells[col]);
+            var res;
+            if (x.n != null && y.n != null) res = x.n < y.n ? -1 : (x.n > y.n ? 1 : 0);
+            else res = x.t < y.t ? -1 : (x.t > y.t ? 1 : 0);
+            return dir === 'asc' ? res : -res;
+          });
+          items.forEach(function (it) { tbody.appendChild(it.row); if (it.sticky) tbody.appendChild(it.sticky); });
+          ths.forEach(function (th2) { th2.classList.remove('srt-asc', 'srt-desc'); });
+          th.classList.add(dir === 'asc' ? 'srt-asc' : 'srt-desc');
+        });
+      });
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('table').forEach(sortableTable);
+    });
+  })();
 </script>
 <script>
   // ——— Счётчик новых заявок в навбаре ———

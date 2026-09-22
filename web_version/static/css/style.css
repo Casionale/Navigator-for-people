@@ -234,6 +234,15 @@ a:hover { text-decoration: underline; }
 .panel-refresh-float { position: absolute; top: 12px; right: 12px; }
 @keyframes panel-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
+/* ---------- Архив (неактивные участники группы) ---------- */
+.archive-block { margin-top:16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel2); }
+.archive-block summary { cursor:pointer; padding:10px 14px; font-weight:600; color:var(--muted); display:flex; align-items:center; gap:8px; list-style:none; }
+.archive-block summary::-webkit-details-marker { display:none; }
+.archive-block summary::before { content:"›"; display:inline-block; transition:transform .15s; }
+.archive-block[open] summary::before { transform:rotate(90deg); }
+.archive-block[open] summary { border-bottom:1px solid var(--border); color:var(--text); }
+.archive-block .attendance-grid { padding:10px 14px 14px; }
+
 /* ---------- Таблицы ---------- */
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
