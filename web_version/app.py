@@ -470,6 +470,32 @@ def group_page(group_id):
     )
 
 
+@app.route("/group/<int:group_id>/attendance_section")
+@login_required
+@safe
+def attendance_section(group_id):
+    """Частчный рендер панели посещаемости (без перезагрузки страницы).
+
+    Используется после добавления/отмены дня, чтобы обновить грид на месте.
+    """
+    client = get_client()
+    month = request.args.get("month", "") or time_now("%Y-%m")
+    group = client.get_group(group_id)
+    members = client.get_members(group_id, month)
+    dates = client.get_dates(group_id, month)
+    attendance_matrix = build_attendance_matrix(client, members, dates, month)
+    prev_month, next_month = month_nav(month)
+    return render_template(
+        "_attendance_panel.html",
+        group=group,
+        attendance_matrix=attendance_matrix,
+        month=month,
+        prev_month=prev_month,
+        next_month=next_month,
+        month_label=month_label(month),
+    )
+
+
 def time_now(fmt):
     import time
     return time.strftime(fmt)
@@ -532,9 +558,19 @@ def build_attendance_matrix(client, members, dates, month=None):
                 except Exception:
                     continue
 
-    # объединяем расписание и фактические отметки, сортируем
+    def _cancelled(d):
+        # день отменён, если стоит активное исключение type=cancel
+        # (например, createEventGroupScheduleDate type=cancel)
+        for e in d.get("exclusions") or []:
+            if isinstance(e, dict) and e.get("type") == "cancel" and e.get("is_active"):
+                return True
+        return False
+
+    # объединяем расписание и фактические отметки, сортируем.
+    # отменённые дни из колонок исключаем — они означают «день удалён».
     all_dates = set(
-        (d.get("date") or "")[:10] for d in dates if (d.get("date") or "")[:10]
+        (d.get("date") or "")[:10] for d in dates
+        if (d.get("date") or "")[:10] and not _cancelled(d)
     )
     all_dates |= e_dates
     if month_prefix:
@@ -683,6 +719,90 @@ def save_lesson(group_id):
     except Exception as e:
         flash(str(e), "error")
     return redirect(url_for("group_page", group_id=group_id, tab="ktp"))
+
+
+@app.route("/group/<int:group_id>/add_day", methods=["POST"])
+@login_required
+@safe
+def add_day(group_id):
+    """Добавить день (занятие) в расписание посещаемости группы.
+
+    Тело JSON: {date: 'YYYY-MM-DD HH:MM:SS', periods:
+    [{time_start, duration, duration_length, breaks}]}. Работает от имени
+    текущего пользователя (его права на группу проверяет навигатор).
+    """
+    client = get_client()
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        data = {}
+    payload = data.get("data") or data
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Некорректный payload"}), 400
+    date = (payload.get("date") or "").strip()
+    if not date:
+        return jsonify({"ok": False, "error": "Укажите дату"}), 400
+    periods = []
+    for p in (payload.get("periods") or []) or []:
+        if not isinstance(p, dict):
+            continue
+        time_start = (p.get("time_start") or "").strip()
+        if not time_start:
+            continue
+        try:
+            duration = float(p.get("duration") or 1)
+        except (TypeError, ValueError):
+            duration = 1
+        if float(duration) == int(duration):
+            duration = int(duration)
+        try:
+            duration_length = int(p.get("duration_length") or 45)
+        except (TypeError, ValueError):
+            duration_length = 45
+        breaks = []
+        for b_ in (p.get("breaks") or []) or []:
+            try:
+                breaks.append(int(b_))
+            except (TypeError, ValueError):
+                continue
+        periods.append({"time_start": time_start, "duration": duration,
+                        "duration_length": duration_length, "breaks": breaks})
+    if not periods:
+        return jsonify({"ok": False, "error": "Укажите хотя бы одно время занятия"}), 400
+    try:
+        client.add_schedule_date(group_id, date, periods)
+        return jsonify({"ok": True})
+    except NavigatorError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+
+
+@app.route("/group/<int:group_id>/cancel_day", methods=["POST"])
+@login_required
+@safe
+def cancel_day(group_id):
+    """Отменить (удалить) день из расписания посещаемости группы.
+
+    Тело JSON: {date: 'YYYY-MM-DD HH:MM:SS'}. Работает от имени текущего
+    пользователя (его права на группу проверяет навигатор).
+    """
+    client = get_client()
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        data = {}
+    payload = data.get("data") or data
+    if not isinstance(payload, dict):
+        return jsonify({"ok": False, "error": "Некорректный payload"}), 400
+    date = (payload.get("date") or "").strip()
+    if not date:
+        return jsonify({"ok": False, "error": "Укажите дату"}), 400
+    try:
+        client.cancel_schedule_date(group_id, date)
+        return jsonify({"ok": True})
+    except NavigatorError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
 
 
 @app.route("/group/<int:group_id>/accept", methods=["POST"])

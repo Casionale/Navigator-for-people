@@ -95,7 +95,7 @@
       .then(function (r) { return r.json(); }).then(done, done);
   }
   // Кнопка ↻ рядом с каждой таблицей (панели, группы программ).
-  document.addEventListener('DOMContentLoaded', function () {
+  function attachPanelRefresh() {
     function makeBtn() {
       var b = document.createElement('button');
       b.type = 'button';
@@ -115,7 +115,9 @@
       b.classList.add('panel-refresh-float');
       p.appendChild(b);
     });
-  });
+  }
+  window.attachPanelRefresh = attachPanelRefresh;
+  document.addEventListener('DOMContentLoaded', attachPanelRefresh);
 </script>
 <script>
   // ——— Сортировка таблиц по всем столбцам (клик по заголовку) ———

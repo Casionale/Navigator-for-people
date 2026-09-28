@@ -1,0 +1,80 @@
+<div class="panel mb" id="attendancePanel">
+  <div class="flex mb">
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=prev_month) }}">◀</a>
+    <strong>{{ month_label }}</strong>
+    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=next_month) }}">▶</a>
+    <button type="button" class="btn btn-sm" onclick="openAddDayModal()">➕ Добавить день</button>
+    <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="Сбросить серверный кэш и обновить данные">↻ Обновить</button>
+    <span class="small muted">Клик по ячейке — проставить/снять ✓. Клик по шапке дня — всем ученикам. ✕ в шапке — отменить/удалить день.</span>
+  </div>
+  <div class="flex mb small">
+    <span><span class="presence yes">✓</span> посетил</span>
+    <span><span class="presence no">✗</span> нет</span>
+    <span><span class="presence sick">Б</span> болел</span>
+    <span><span class="presence other">?</span> другое</span>
+  </div>
+
+  <div class="attendance-grid">
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th>Ребёнок</th>
+          {% for c in attendance_matrix.cols %}
+            <th class="num day-toggle" data-date="{{ c.date }}" title="{{ c.date }} — клик: проставить всем / снять; ✕ — отменить день">
+              <div class="matrix-dd">{{ c.daynum }}</div>
+              <div class="matrix-wd">{{ c.weekday }}</div>
+              <button type="button" class="day-del" title="Отменить день {{ c.date }}" onclick="event.stopPropagation();openCancelDayConfirm('{{ c.date }}');">✕</button>
+            </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in attendance_matrix.rows if r.active %}
+        <tr>
+          <td class="matrix-name">
+            {{ r.name }}
+            {% if r.age is not none %}<span class="muted small">, {{ r.age }} лет</span>{% endif %}
+          </td>
+          {% for cell in r.cells %}
+            <td class="num">
+              <button
+                class="acell {{ 'present' if cell.value==1 }}{{ ' absent' if cell.value==2 }}{{ ' sick' if cell.value==3 }}{{ ' other' if cell.value not in [1,2,3] and cell.value is not none }}"
+                data-group="{{ group['id'] }}"
+                data-date="{{ cell.date }}"
+                data-kid="{{ r.kid_id }}"
+                data-value="{{ cell.value if cell.value is not none else '' }}"
+                title="{{ cell.date }}"
+              >{{ {1:'✓',2:'✗',3:'Б'}.get(cell.value, '') }}</button>
+            </td>
+          {% endfor %}
+        </tr>
+        {% else %}
+          <tr><td colspan="{{ attendance_matrix.cols|length + 1 }}" class="empty">Нет обучающихся в группе за выбранный период.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not attendance_matrix.cols %}
+    <div class="empty mt">На этот месяц нет ни дат по расписанию, ни отметок посещаемости.</div>
+  {% endif %}
+
+  {% set archived = attendance_matrix.rows | selectattr('active', 'equalto', False) | list %}
+  {% if archived %}
+  <details class="archive-block">
+    <summary>Архив <span class="badge">{{ archived|length }}</span></summary>
+    <div class="attendance-grid">
+      <table class="matrix">
+        <thead><tr><th>Ребёнок</th><th>Причина записи в архив</th></tr></thead>
+        <tbody>
+          {% for r in archived %}
+          <tr>
+            <td class="matrix-name">{{ r.name }}</td>
+            <td class="small muted">{{ r.reason or 'Не указана' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </details>
+  {% endif %}
+</div>

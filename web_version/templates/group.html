@@ -77,83 +77,7 @@
 
 <!-- ============================ ПОСЕЩАЕМОСТЬ ============================ -->
 {% if tab == 'attendance' %}
-<div class="panel mb">
-  <div class="flex mb">
-    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=prev_month) }}">◀</a>
-    <strong>{{ month_label }}</strong>
-    <a class="btn btn-sm" href="{{ url_for('group_page', group_id=group['id'], tab='attendance', month=next_month) }}">▶</a>
-    <span class="small muted">Клик по ячейке — проставить/снять ✓. Клик по шапке дня — всем ученикам.</span>
-  </div>
-  <div class="flex mb small">
-    <span><span class="presence yes">✓</span> посетил</span>
-    <span><span class="presence no">✗</span> нет</span>
-    <span><span class="presence sick">Б</span> болел</span>
-    <span><span class="presence other">?</span> другое</span>
-  </div>
-
-  <div class="attendance-grid">
-    <table class="matrix">
-      <thead>
-        <tr>
-          <th>Ребёнок</th>
-          {% for c in attendance_matrix.cols %}
-            <th class="num day-toggle" data-date="{{ c.date }}" title="{{ c.date }} — клик: проставить всем / снять">
-              <div class="matrix-dd">{{ c.daynum }}</div>
-              <div class="matrix-wd">{{ c.weekday }}</div>
-            </th>
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for r in attendance_matrix.rows if r.active %}
-        <tr>
-          <td class="matrix-name">
-            {{ r.name }}
-            {% if r.age is not none %}<span class="muted small">, {{ r.age }} лет</span>{% endif %}
-          </td>
-          {% for cell in r.cells %}
-            <td class="num">
-              <button
-                class="acell {{ 'present' if cell.value==1 }}{{ ' absent' if cell.value==2 }}{{ ' sick' if cell.value==3 }}{{ ' other' if cell.value not in [1,2,3] and cell.value is not none }}"
-                data-group="{{ group['id'] }}"
-                data-date="{{ cell.date }}"
-                data-kid="{{ r.kid_id }}"
-                data-value="{{ cell.value if cell.value is not none else '' }}"
-                title="{{ cell.date }}"
-              >{{ {1:'✓',2:'✗',3:'Б'}.get(cell.value, '') }}</button>
-            </td>
-          {% endfor %}
-        </tr>
-        {% else %}
-          <tr><td colspan="{{ attendance_matrix.cols|length + 1 }}" class="empty">Нет обучающихся в группе за выбранный период.</td></tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% if not attendance_matrix.cols %}
-    <div class="empty mt">На этот месяц нет ни дат по расписанию, ни отметок посещаемости.</div>
-  {% endif %}
-
-  {% set archived = attendance_matrix.rows | selectattr('active', 'equalto', False) | list %}
-  {% if archived %}
-  <details class="archive-block">
-    <summary>Архив <span class="badge">{{ archived|length }}</span></summary>
-    <div class="attendance-grid">
-      <table class="matrix">
-        <thead><tr><th>Ребёнок</th><th>Причина записи в архив</th></tr></thead>
-        <tbody>
-          {% for r in archived %}
-          <tr>
-            <td class="matrix-name">{{ r.name }}</td>
-            <td class="small muted">{{ r.reason or 'Не указана' }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </details>
-  {% endif %}
-</div>
+{% include '_attendance_panel.html' %}
 
 <!-- ============================ КТП ============================ -->
 {% elif tab == 'ktp' %}
@@ -574,6 +498,44 @@
   </div>
 </div>
 
+<!-- ============================ МОДАЛКА: ДОБАВИТЬ ДЕНЬ ============================ -->
+<div class="modal-backdrop" id="addDayModal" style="display:none;">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 style="margin:0;">Добавить день (занятие)</h3>
+      <button type="button" class="btn btn-sm" onclick="closeAddDayModal()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <form id="addDayForm" onsubmit="return addDaySubmit(event);">
+        <div class="row">
+          <div class="field" style="margin:0;"><label>Дата</label><input type="date" id="addDayDate" required></div>
+          <div class="field" style="margin:0;"><label>Время начала</label><input type="time" id="addDayTime" required></div>
+        </div>
+        <div class="row">
+          <div class="field" style="margin:0;"><label>Длительность (ак. занятий)</label>
+            <select id="addDayDuration">
+              <option value="1">1</option><option value="1.5">1,5</option><option value="2" selected>2</option>
+              <option value="2.5">2,5</option><option value="3">3</option><option value="3.5">3,5</option><option value="4">4</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;"><label>Акад. час (мин)</label>
+            <select id="addDayLength">
+              <option value="15">15</option><option value="20">20</option><option value="25">25</option>
+              <option value="30">30</option><option value="40">40</option><option value="45" selected>45</option><option value="60">60</option>
+            </select>
+          </div>
+          <div class="field" style="margin:0;min-width:200px;"><label>Перерывы, мин (через запятую, 0 — нет)</label><input type="text" id="addDayBreaks" placeholder="5" style="width:190px;"></div>
+        </div>
+        <div class="flex mt">
+          <button type="submit" class="btn btn-primary">Далее → подтверждение</button>
+          <button type="button" class="btn btn-sm" onclick="closeAddDayModal()">Отмена</button>
+        </div>
+      </form>
+      <div class="small warn-note mt">Запрос будет отправлен от имени вашей учётки только после подтверждения ниже.</div>
+    </div>
+  </div>
+</div>
+
 <!-- ============================ МОДАЛКА: ПОДТВЕРЖДЕНИЕ РАСПИСАНИЯ ============================ -->
 <div class="modal-backdrop" id="schedConfirmModal" style="display:none;">
   <div class="modal">
@@ -619,6 +581,7 @@
 {% block scripts %}
 <script>
   var GROUP_ID = {{ group['id'] }};
+  var ATT_MONTH = {{ month|tojson }};
   var OP_KID = null;
   function openMembersModal() {
     document.getElementById('membersModal').style.display = 'flex';
@@ -877,25 +840,37 @@
       if (res.ok) ok(res); else fail(res.error || 'Ошибка');
     }).catch(function () { fail('Ошибка сети'); });
   }
-  document.querySelectorAll('.acell').forEach(function (cell) {
-    cell.addEventListener('click', function () {
-      var cur = cell.getAttribute('data-value') || '0';
-      // toggle: пусто → ✓, иначе → пусто (снять отметку)
-      var nxt = (cur === '0' || cur === '' || cur === null);
-      cell.disabled = true;
-      sendAttendance(
-        cell.getAttribute('data-group'),
-        cell.getAttribute('data-date'),
-        cell.getAttribute('data-kid'),
-        nxt,
-        function (res) { cell.disabled = false; updateCell(cell, nxt); },
-        function (err) { cell.disabled = false; alert(err); }
-      );
+  function refreshAttendance() {
+    return fetch('/group/' + GROUP_ID + '/attendance_section?month=' + encodeURIComponent(ATT_MONTH || ''))
+      .then(function (r) { return r.text(); }).then(function (html) {
+        var panel = document.getElementById('attendancePanel');
+        if (!panel) return;
+        var tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        var fresh = tmp.querySelector('#attendancePanel');
+        if (fresh) { panel.parentNode.replaceChild(fresh, panel); bindAttendance(); if (window.attachPanelRefresh) window.attachPanelRefresh(); }
+      }).catch(function () { /* не рушим послеоперационную логику */ });
+  }
+  function bindAttendance() {
+    document.querySelectorAll('#attendancePanel .acell').forEach(function (cell) {
+      cell.addEventListener('click', function () {
+        var cur = cell.getAttribute('data-value') || '0';
+        // toggle: пусто → ✓, иначе → пусто (снять отметку)
+        var nxt = (cur === '0' || cur === '' || cur === null);
+        cell.disabled = true;
+        sendAttendance(
+          cell.getAttribute('data-group'),
+          cell.getAttribute('data-date'),
+          cell.getAttribute('data-kid'),
+          nxt,
+          function (res) { cell.disabled = false; updateCell(cell, nxt); },
+          function (err) { cell.disabled = false; alert(err); }
+        );
+      });
     });
-  });
 
-  // Клик по шапке дня: проставить / снять ✓ всем ученикам за эту дату
-  document.querySelectorAll('th.day-toggle').forEach(function (th) {
+    // Клик по шапке дня: проставить / снять ✓ всем ученикам за эту дату
+    document.querySelectorAll('#attendancePanel th.day-toggle').forEach(function (th) {
     th.addEventListener('click', function () {
       var date = th.getAttribute('data-date');
       if (!date) return;
@@ -943,6 +918,77 @@
       }).catch(function () { th.style.opacity = '1'; alert('Ошибка сети'); });
     });
   });
+  }
+  bindAttendance();
+  // ============================ ДОБАВИТЬ / ОТМЕНИТЬ ДЕНЬ ============================
+  function openAddDayModal() {
+    var today = new Date();
+    var m = String(today.getMonth() + 1).padStart(2, '0');
+    var d = String(today.getDate()).padStart(2, '0');
+    document.getElementById('addDayDate').value = today.getFullYear() + '-' + m + '-' + d;
+    document.getElementById('addDayTime').value = '14:00';
+    document.getElementById('addDayDuration').value = '2';
+    document.getElementById('addDayLength').value = '45';
+    document.getElementById('addDayBreaks').value = '5';
+    document.getElementById('addDayModal').style.display = 'flex';
+  }
+  function closeAddDayModal() { document.getElementById('addDayModal').style.display = 'none'; }
+  function addDaySubmit(ev) {
+    if (ev && ev.preventDefault) ev.preventDefault();
+    var date = document.getElementById('addDayDate').value;
+    var time = document.getElementById('addDayTime').value;
+    if (!date || !time) { alert('Укажите дату и время начала'); return false; }
+    var duration = parseFloat(document.getElementById('addDayDuration').value) || 1;
+    var length = parseInt(document.getElementById('addDayLength').value, 10) || 45;
+    var breaks = [];
+    var br = document.getElementById('addDayBreaks').value.trim();
+    if (br) breaks = br.split(/[\s,;]+/).map(function (x) { return parseInt(x, 10); }).filter(function (n) { return !isNaN(n) && n >= 0; });
+    var payload = {
+      date: date + ' 00:00:00',
+      periods: [{ time_start: time, duration: duration, duration_length: length, breaks: breaks }]
+    };
+    var summary = 'Дата: ' + date +
+                  '\nВремя начала: ' + time +
+                  '\nДлительность: ' + duration + ' × ' + length + ' мин' +
+                  '\nПерерывы: ' + (breaks.length ? breaks.join(', ') + ' мин' : 'нет');
+    closeAddDayModal();
+    openSchedConfirm('Добавить день в расписание?', summary, JSON.stringify({ data: payload }, null, 2), function () {
+      doAddDay(payload);
+    });
+    return false;
+  }
+  function doAddDay(payload) {
+    fetch('/group/' + GROUP_ID + '/add_day', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: payload })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) {
+        alert(res.error || 'Ошибка при добавлении дня');
+        return;
+      }
+      refreshAttendance();
+    }).catch(function () { alert('Ошибка сети'); });
+  }
+  function openCancelDayConfirm(date) {
+    var payload = { date: date + ' 00:00:00' };
+    openSchedConfirm('Отменить день ' + date + '?', 'Занятие за ' + date + ' будет отменено, посещаемость за день скрыта.', JSON.stringify({ data: payload }, null, 2), function () {
+      doCancelDay(payload);
+    });
+  }
+  function doCancelDay(payload) {
+    fetch('/group/' + GROUP_ID + '/cancel_day', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: payload })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) {
+        alert(res.error || 'Ошибка при отмене дня');
+        return;
+      }
+      refreshAttendance();
+    }).catch(function () { alert('Ошибка сети'); });
+  }
   var schedApply = document.getElementById('schedApplyGroup');
   if (schedApply) {
     var schedGF = document.getElementById('schedGroupFields');

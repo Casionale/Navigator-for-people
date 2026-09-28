@@ -330,6 +330,44 @@ municipality_id, municipality_name, entrance_exams_enabled, locked_external_user
 
 Оба принимают `extFilters` в стандартном JSON-виде. В примере вернули `[]` (нет данных за выбранные месяцы), но сигнатура подтверждена.
 
+Элемент даты (`data` из `/api/attendance/dates/get`) содержит `times[]` с полями `{start, end, duration, duration_length, breaks[], address, schedule_id, schedule_date_id}` — это расписание конкретного дня.
+
+### `POST /api/createEventGroupScheduleDate` — добавить или отменить день в расписании
+
+Управление конкретными днями расписания посещаемости (`type` определяет операцию). Источник: админка навигатора (`booking.dop29.ru/admin`).
+
+**Добавить день (type=`add`) — модалка «дата, время, перемены»:**
+```json
+{
+  "data": {
+    "type": "add",
+    "group_id": "25846",
+    "date": "2026-09-28 08:30:00",
+    "periods": [
+      { "time_start": "08:30", "duration": 2, "duration_length": 45, "breaks": [5] }
+    ]
+  }
+}
+```
+- `periods` — массив периодов занятия; на каждый: `time_start` (`HH:MM`), `duration` — длительность в академических занятиях, `duration_length` — минут в академическом часе, `breaks` — массив минут перемен (пусто = без перемен).
+- `date` — в формате `YYYY-MM-DD HH:MM:SS`.
+
+**Отменить (удалить) день (type=`cancel`):**
+```json
+{ "data": { "group_id": "25846", "type": "cancel", "date": "2026-09-25 14:00:00" } }
+```
+
+### `POST /api/updateEventGroupScheduleDate/` — вернуть отменённый день
+```json
+{ "data": { "id": "<id исключения>", "is_active": 0 } }
+```
+
+### `POST /api/event-group-lessons/remove` — очистить/удалить занятие (КТП)
+Удаляет запись занятия по дате (тема + связанные данные; если на дату проставлена посещаемость — очищает данные):
+```json
+{ "data": { "group_id": "25846", "date": "2026-09-25 14:00:00" } }
+```
+
 ---
 
 ## Организации / Partners

@@ -456,6 +456,143 @@ class NavigatorClient:
         self._invalidate(f"lessons:{group_id}")
         return self._data(b)
 
+    def _fetch_date_exceptions(self, group_id, date):
+        """Исключения (add/cancel) по одной дате: список dict из dates/get.
+
+        date в формате YYYY-MM-DD или YYYY-MM-DD HH:MM:SS.
+        """
+        d = date[:10]
+        filters = json.dumps(
+            [
+                {"property": "group_id", "value": str(group_id)},
+                {"property": "dateStart", "value": f"{d} 00:00:00"},
+                {"property": "dateEnd", "value": f"{d} 23:59:59"},
+            ],
+            ensure_ascii=True,
+        )
+        b = self._get(
+            "/api/attendance/dates/get",
+            {
+                "_dc": int(time.time() * 1000),
+                "page": 1,
+                "start": 0,
+                "length": 50,
+                "extFilters": filters,
+            },
+        )
+        for row in self._data(b) or []:
+            if (row.get("date") or "").startswith(d):
+                return list(row.get("exclusions") or [])
+        return []
+
+    def add_schedule_date(self, group_id, date, periods):
+        """Добавить день (занятие) в расписание посещаемости группы.
+
+        Если для даты уже активна отмена (cancel), она сначала деактивируется —
+        иначе повторное добавление даты после отмены не показывало бы день.
+        При уже активном add не создаётся дубликат. periods — список
+        [{time_start, duration, duration_length, breaks}]; date в формате
+        YYYY-MM-DD HH:MM:SS.
+        """
+        def _create():
+            return self._data(
+                self._post(
+                    "/api/createEventGroupScheduleDate",
+                    {
+                        "data": {
+                            "type": "add",
+                            "group_id": str(group_id),
+                            "date": date,
+                            "periods": periods,
+                        }
+                    },
+                )
+            ) or {"ok": True}
+
+        output = {"ok": True}
+        try:
+            ex = self._fetch_date_exceptions(group_id, date)
+        except Exception:
+            ex = None
+        if ex is not None:
+            for e in ex:
+                if e.get("type") == "cancel" and e.get("is_active"):
+                    eid = e.get("id")
+                    if eid:
+                        self._post(
+                            f"/api/updateEventGroupScheduleDate/{eid}",
+                            {"data": {"id": eid, "is_active": 0}},
+                        )
+            if any(e.get("type") == "add" and e.get("is_active") for e in ex):
+                output["already_active"] = True
+            else:
+                output = _create()
+        else:
+            output = _create()
+        self._invalidate(f"dates:{group_id}", f"lessons:{group_id}", f"group:{group_id}", f"schedule:{group_id}")
+        if isinstance(output, dict):
+            output.setdefault("ok", True)
+        else:
+            output = {"ok": True}
+        return output
+
+    def cancel_schedule_date(self, group_id, date):
+        """Отменить (удалить) день из расписания посещаемости группы.
+
+        Деактивирует активные add-исключения даты и активирует cancel
+        (или создаёт новый), чтобы день скрывался. Повторная отмена не
+        накапливает дубликаты. date в формате YYYY-MM-DD HH:MM:SS.
+        """
+        def _create_cancel():
+            return self._data(
+                self._post(
+                    "/api/createEventGroupScheduleDate",
+                    {
+                        "data": {
+                            "type": "cancel",
+                            "group_id": str(group_id),
+                            "date": date,
+                        }
+                    },
+                )
+            ) or {"ok": True}
+
+        output = {"ok": True}
+        try:
+            ex = self._fetch_date_exceptions(group_id, date)
+        except Exception:
+            ex = None
+        if ex is not None:
+            for e in ex:
+                if e.get("type") == "add" and e.get("is_active"):
+                    eid = e.get("id")
+                    if eid:
+                        self._post(
+                            f"/api/updateEventGroupScheduleDate/{eid}",
+                            {"data": {"id": eid, "is_active": 0}},
+                        )
+            cancels = [e for e in ex if e.get("type") == "cancel"]
+            if any(e.get("is_active") for e in cancels):
+                pass
+            elif cancels:
+                newest = max(cancels, key=lambda e: int(e.get("id") or 0))
+                eid = newest.get("id")
+                if eid:
+                    self._post(
+                        f"/api/updateEventGroupScheduleDate/{eid}",
+                        {"data": {"id": eid, "is_active": 1}},
+                    )
+            else:
+                output = _create_cancel()
+        else:
+            output = _create_cancel()
+        self._invalidate(f"dates:{group_id}", f"group:{group_id}", f"schedule:{group_id}")
+        if isinstance(output, dict):
+            output.setdefault("ok", True)
+        else:
+            output = {"ok": True}
+        return output
+
     def get_event_group_subjects(self, group_id):
         """Предметы группы (для списка типов занятий КТП).
 
