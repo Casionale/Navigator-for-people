@@ -6,6 +6,7 @@
   --muted: #6b7280;
   --border: #e2e5ea;
   --accent: #4f6ef7;
+  --accent-text: #2f4bd8;
   --accent-soft: #e8edff;
   --danger: #e5484d;
   --danger-soft: #fde8e8;
@@ -25,6 +26,7 @@
   --muted: #9aa3af;
   --border: #2a323c;
   --accent: #7c8fff;
+  --accent-text: #a9baff;
   --accent-soft: #232b45;
   --danger: #ff7a7e;
   --danger-soft: #3a2224;
@@ -44,6 +46,7 @@
   --muted: #8a7456;
   --border: #e0d0b0;
   --accent: #a05a1c;
+  --accent-text: #7c440e;
   --accent-soft: #f3e2c9;
   --danger: #b5442f;
   --danger-soft: #f6ddd6;
@@ -63,6 +66,7 @@
   --muted: #6b7f68;
   --border: #d5e6d1;
   --accent: #3f9e3f;
+  --accent-text: #267126;
   --accent-soft: #e3f4df;
   --danger: #d4463f;
   --danger-soft: #fde7e3;
@@ -81,6 +85,7 @@
   --muted: #8fa6c2;
   --border: #1f3a5f;
   --accent: #38bdf8;
+  --accent-text: #8fe0ff;
   --accent-soft: #12314f;
   --danger: #fb7185;
   --danger-soft: #3a2230;
@@ -99,6 +104,7 @@
   --muted: #9a6b7d;
   --border: #f3cddb;
   --accent: #ff5c9e;
+  --accent-text: #bd2a6b;
   --accent-soft: #ffe4ef;
   --danger: #e5484d;
   --danger-soft: #fde8e8;
@@ -124,6 +130,7 @@
   --muted: #7e6b96;
   --border: #ddd0ed;
   --accent: #8b5cf6;
+  --accent-text: #5f35c9;
   --accent-soft: #eee5ff;
   --danger: #dc4a4a;
   --danger-soft: #fde8e8;
@@ -143,6 +150,7 @@
   --muted: #8f8a80;
   --border: #2c2a30;
   --accent: #d3221f;
+  --accent-text: #ff8a80;
   --accent-soft: #2a1717;
   --danger: #e0483f;
   --danger-soft: #3a1b18;
@@ -474,8 +482,84 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 8px 10px; border: 0; border-radius: var(--radius-sm);
   background: transparent; color: var(--text); cursor: pointer; text-align: left; font-size: 13px;
+  /* У пункта есть свой data-theme — иначе он брал бы цвета СВОЕЙ темы и сливался
+     на фоне списка текущей темы (тёмные названия на белом и наоборот). */
+  --text: inherit; --panel2: inherit;
 }
 .theme-item:hover { background: var(--panel2); }
-.theme-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.theme-item.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
 .theme-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
+
+/* ---------- Карточка программы: основные настройки (сворачиваемая форма) ---------- */
+.settings-panel { margin-bottom: 14px; padding: 0; overflow: hidden; }
+.settings-toggle {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  background: var(--panel2); color: var(--text); border: 0; cursor: pointer;
+  padding: 13px 16px; font-size: 15px; font-weight: 700;
+}
+.settings-toggle:hover { background: var(--border); }
+.settings-toggle[aria-expanded="true"] { background: var(--panel2); }
+.settings-chev { font-size: 13px; color: var(--muted); transition: transform .15s; }
+.settings-hint { margin-left: auto; font-size: 12px; font-weight: 400; color: var(--muted); white-space: nowrap; }
+.prog-settings-body { padding: 18px 18px 6px; }
+.s-row {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px 24px; padding-bottom: 16px; margin-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+.s-row:last-of-type { border-bottom: 0; margin-bottom: 0; padding-bottom: 0; }
+.s-col { min-width: 0; display: flex; flex-direction: column; }
+.s-col.full { grid-column: 1 / -1; }
+.s-col-label { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.s-fields { display: flex; flex-direction: column; gap: 10px; min-width: 0; flex: 1; justify-content: flex-end; }
+.s-fields.inline { flex-direction: row; align-items: flex-end; flex-wrap: nowrap; gap: 8px; }
+.s-field { min-width: 0; display: flex; flex-direction: column; flex: 1; }
+.s-fields.inline .s-field { flex-direction: row; align-items: flex-end; gap: 4px; }
+.s-field.disabled { opacity: .55; }
+.s-caption {
+  display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .03em;
+  color: var(--muted); margin-bottom: 4px;
+}
+.s-field input[type="text"],
+.s-field input[type="number"],
+.s-field textarea,
+.s-field select { width: 100%; box-sizing: border-box; min-width: 0; }
+.s-field input[type="number"] { flex: 1 1 80px; }
+.s-fields.inline .s-field { flex: 0 1 auto; }
+.s-fields.inline .s-field input[type="number"] { flex: 0 1 110px; }
+.s-fields.inline select { flex: 0 0 130px; }
+
+/* ---------- Combobox: input + datalist + чипы ---------- */
+.combo { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
+.combo-input { width: 100%; box-sizing: border-box; cursor: pointer; }
+.combo.is-invalid .combo-input { border-color: var(--danger); }
+.combo-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 2px; max-width: 100%;
+  padding: 1px 3px 1px 10px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--accent-soft); color: var(--text); font-size: 12.5px; line-height: 1.6;
+}
+.chip-x { flex: 0 0 auto; border: 0; background: none; padding: 0 5px; cursor: pointer; color: var(--muted); font-size: 15px; line-height: 1; }
+.chip-x:hover { color: var(--danger); }
+.s-fields.inline .combo { flex: 0 1 140px; }
+.s-pre { flex: 0 0 auto; color: var(--muted); font-size: 13px; margin: 0 0 9px 0; }
+.chk-inline { display: flex; align-items: center; gap: 8px; cursor: pointer; align-self: flex-start; }
+.chk-inline .s-caption { text-transform: none; font-size: 13px; color: var(--text); margin: 0; }
+.s-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.s-info-value { font-size: 14px; line-height: 1.45; color: var(--text); font-weight: 500; word-break: break-word; }
+.settings-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px; padding: 14px 0 12px; border-top: 1px solid var(--border); }
+.settings-note { flex: 1 0 100%; }
+
+@media (max-width: 760px) {
+  .s-row { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .s-fields.inline { flex-wrap: wrap; }
+  .s-field textarea { min-height: 90px; }
+  .settings-actions { padding-bottom: 0; }
+}
+
+/* ---------- ЧаВо (FAQ) ---------- */
+.faq-item { padding: 14px 16px; }
+.faq-item + .faq-item { border-top: 1px solid var(--border); }
+.faq-q { font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 6px; }
+.faq-a { font-size: 14px; line-height: 1.55; color: var(--text); }
 

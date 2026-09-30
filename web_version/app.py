@@ -1055,6 +1055,18 @@ def programs():
     return render_template("programs.html", programs=programs)
 
 
+def _combo_index(form):
+    """{имя_поля: [[подпись, код], ...]} — разбор текста combobox обратно в коды."""
+    out = {}
+    for row in form or []:
+        for c in row.get("cols", []):
+            for fl in c.get("fields", []):
+                if fl.get("kind") == "combo":
+                    out[fl["name"]] = [[o.get("text") or "", o.get("value")]
+                                       for o in fl.get("options", [])]
+    return json.dumps(out, ensure_ascii=False)
+
+
 @app.route("/programs/<int:event_id>")
 @login_required
 @safe
@@ -1063,7 +1075,185 @@ def program_page(event_id):
     program = client.get_program(event_id)
     groups = client.get_groups()
     prog_groups = [g for g in groups if str(g.get("event_id")) == str(event_id)]
-    return render_template("programs.html", programs=[program], focus=event_id, groups=prog_groups)
+    form = _program_form(client, program) if program else None
+    return render_template(
+        "programs.html",
+        programs=[program] if program else [],
+        program=program,
+        form=form,
+        combos=_combo_index(form),
+        focus=event_id,
+        groups=prog_groups,
+    )
+
+
+@app.route("/programs/<int:event_id>/save", methods=["POST"])
+@login_required
+def program_save(event_id):
+    """Сохранение основных настроек программы (PUT /api/rest/events/{id})."""
+    client = get_client()
+    try:
+        data = (request.get_json(silent=True) or {}).get("data") or {}
+        if not data:
+            return {"ok": False, "error": "Нет данных для сохранения"}, 400
+        client.save_program(event_id, data)
+        return {"ok": True}
+    except NavigatorError as e:
+        return {"ok": False, "error": str(e)}, 400
+    except Exception as e:
+        return {"ok": False, "error": str(e)}, 400
+
+
+def _program_form(client, program):
+    """Поля формы «Основные настройки программы» (по образцу таба «Основное»
+    редактора настоящего навигатора). Значения из сырого ответа программы,
+    справочники — живьём с API.
+
+    Возвращает список «рядов»: каждый ряд — {"cols": [ячейки...]}, где ячейка:
+      {"label": "...", "fields": [...]}         — обычная ячейка с подписью,
+      {"label": "...", "fields": [...], "inline": True} — пара коротких полей в ряд,
+      {"fields": [...], "full": True}           — ячейка на всю ширину.
+    Поле (field): {"kind": text|textarea|number|combo|checkbox|info, ...}."""
+    p_ = program.get
+
+    def dict_opts(name, cur=None):
+        """options [{value,text}] из словаря + текущее значение, если его там нет."""
+        opts, seen = [], set()
+        for i in client.get_dictionary(name):
+            k = str(i.get("id"))
+            seen.add(k)
+            opts.append({"value": k, "text": i.get("name") or k})
+        if cur is not None and str(cur) not in seen and str(cur) != "None":
+            opts.append({"value": str(cur), "text": str(cur)})
+        return opts
+
+    def f(kind, name, label, value, **kw):
+        d = {"kind": kind, "name": name, "label": label, "value": value}
+        d.update(kw)
+        return d
+
+    def combo(name, label, value, options, multiple=False, depends=None,
+              allow_empty=True, listwrap=False, placeholder="Начните вводить…"):
+        """Combobox: value подставляется как подпись (label), а не код.
+
+        options: [{value(код), text(подпись)}]. Наружу отдаём display (текст в поле),
+        selected (коды) и labels (подписи кодов — для чипов множественного выбора).
+        """
+        codes = [str(c) for c in (value or [])] if multiple else \
+                ([str(value)] if value not in (None, "", "None") else [])
+        by_val = {o["value"]: o.get("text") or o["value"] for o in options}
+        labels = [by_val.get(c, c) for c in codes]
+        return f("combo", name, label, value, options=options, multiple=multiple,
+                 depends=depends, allow_empty=allow_empty, listwrap=listwrap,
+                 placeholder=placeholder, display=", ".join(labels) if multiple
+                 else (labels[0] if labels else ""),
+                 selected=codes, labels=labels,
+                 codes_json=json.dumps(codes if multiple else (codes[0] if codes else ""),
+                                       ensure_ascii=False))
+
+    def num(name, label, value, minv=0, maxv=100, step="0.5", pre=None):
+        return f("number", name, label, value, min=minv, max=maxv, step=step, pre=pre)
+
+    def txt(name, label, value, maxlength):
+        return f("text", name, label, value, maxlength=maxlength)
+
+    def check(name, label, value):
+        return f("checkbox", name, label, bool(value))
+
+    def info(label, value):
+        return f("info", None, label,
+                 value if value is not None and str(value).strip() != "" else "—")
+
+    def col(field, label=None):
+        return {"label": label, "fields": [field]}
+
+    def pair(label, *fields):
+        return {"label": label, "fields": list(fields), "inline": True}
+
+    def stacked(*fields):
+        return {"label": None, "fields": list(fields)}
+
+    states = {str(i.get("id")): i.get("name") for i in client.get_dictionary("navStatus")}
+    units = [{"value": str(u), "text": t} for u, t in
+             ((3, "день"), (4, "неделя"), (5, "месяц"), (6, "год"))]
+    level_value = (program.get("levels") or program.get("level_set") or [""])[0]
+    reg_projects = [{"value": str(r.get("id")), "text": r.get("name") or ""}
+                    for r in client.get_significant_regional_projects()]
+
+    rows = [
+        {"cols": [
+            col(combo("program_type_full", "Полный тип программы",
+                    str(p_("program_type_full") or ""),
+                    dict_opts("programTypeFull", p_("program_type_full")), allow_empty=False)),
+            col(txt("full_name", "Полное наименование", p_("full_name"), 250)),
+        ]},
+        {"cols": [
+            col(txt("name", "Публичное наименование", p_("name"), 65)),
+            col(combo("program_type", "Тип программы", str(p_("program_type") or ""),
+                    dict_opts("navProgramType", p_("program_type")), allow_empty=False)),
+        ]},
+        {"cols": [
+            {"label": None, "full": True,
+             "fields": [f("textarea", "announce", "Краткое описание", p_("announce"),
+                          maxlength=140)]},
+        ]},
+        {"cols": [
+            col(combo("education_form_v2", "Форма обучения", str(p_("education_form_v2") or ""),
+                    dict_opts("educationFormV2"), allow_empty=False)),
+            col(combo("level_set", "Уровни программы", level_value,
+                    dict_opts("EventLevelsDict"), allow_empty=True, listwrap=True)),
+        ]},
+        {"cols": [
+            pair("Продолжительность",
+                 num("length", "", p_("length"), 1, 100000, "1"),
+                 combo("length_unit", "", str(p_("length_unit") or ""), units, allow_empty=False)),
+            pair("Возрастные ограничения, лет",
+                 num("age_from", "", p_("age_from"), 0, 100, "0.5", pre="от"),
+                 num("age_to", "", p_("age_to"), 0, 100, "0.5", pre="до")),
+        ]},
+        {"cols": [
+            col(combo("domain", "Область", str(p_("domain") or ""),
+                    dict_opts("eventDomainDict"), allow_empty=False)),
+            col(combo("significant_project", "Значимый федеральный проект",
+                    str(p_("significant_project") or ""),
+                    dict_opts("navSignificantProject", p_("significant_project")))),
+        ]},
+        {"cols": [
+            col(combo("significant_regional_project_ids", "Значимый региональный проект",
+                    program.get("significant_regional_project_ids") or [], reg_projects,
+                    multiple=True)),
+            stacked(check("is_ovz", "ОВЗ", program.get("is_ovz")),
+                    combo("ovz_diseases", "Заболевание", program.get("ovz_diseases") or [],
+                        dict_opts("navPfdodDiseases"), multiple=True, depends="is_ovz")),
+        ]},
+        {"cols": [
+            stacked(check("is_invalid_adapted", "Адаптирована для инвалидов",
+                          program.get("is_invalid_adapted")),
+                    combo("program_type_for_disabled", "Тип программы",
+                        str(p_("program_type_for_disabled") or ""),
+                        dict_opts("programTypeForDisabled", p_("program_type_for_disabled")),
+                        depends="is_invalid_adapted")),
+            col(info("Статус", states.get(str(p_("state"))))),
+        ]},
+        {"cols": [
+            col(info("Учреждение", p_("partner_name"))),
+            col(info("Муниципалитет", p_("municipality_name"))),
+        ]},
+        {"cols": [
+            {"label": None, "full": True,
+             "fields": [info("Направленность",
+                             " / ".join(x for x in (p_("section"), p_("sub_section")) if x))]},
+        ]},
+    ]
+    return rows
+
+
+# ------------------------------------------------------------------ ЧаВо
+@app.route("/faq")
+@login_required
+@safe
+def faq():
+    return render_template("faq.html")
 
 
 # ------------------------------------------------------------------ заявки

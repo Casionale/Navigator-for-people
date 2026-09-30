@@ -3,46 +3,145 @@
 {% block content %}
 <div class="grid-main">
   <div>
-    <h1 style="margin-top:0;">Программы</h1>
-    <div class="panel">
-      {% if programs %}
-      <table>
-        <thead>
-          <tr><th>Название</th><th>ID</th><th>Групп</th><th></th></tr>
-        </thead>
-        <tbody>
-          {% for p in programs %}
-          <tr>
-            <td>
-              {% if focus and groups is defined %}
-                <strong>{{ p.get('name') }}</strong>
-              {% else %}
-                <a href="{{ url_for('program_page', event_id=p['id']) }}">{{ p.get('name') }}</a>
-              {% endif %}
-            </td>
-            <td class="num">{{ p.get('id') }}</td>
-            <td class="num">{{ groups|length if focus and groups is defined and p.get('id')==focus else '—' }}</td>
-            <td><a class="btn btn-sm" href="{{ url_for('program_page', event_id=p['id']) }}">Открыть</a></td>
-          </tr>
+    {% if focus and program is defined and program %}
+      <h1 style="margin-top:0;">Программа: {{ program.get('name') }}</h1>
+      <p class="small muted mb">ID: {{ program.get('id') }} · <a href="{{ url_for('programs') }}">← Ко всем программам</a></p>
+      {% if form %}
+      <div class="panel settings-panel">
+        <button type="button" class="settings-toggle" aria-expanded="false" onclick="toggleSettings()">
+          <span class="settings-chev">▸</span>
+          <span>Основные настройки программы</span>
+          <span class="settings-hint">развернуть</span>
+        </button>
+        <div class="prog-settings-body" id="progSettingsBody" hidden>
+          {% for row in form %}
+          <div class="s-row">
+            {% for c in row['cols'] %}
+              <div class="s-col{{ ' full' if c.get('full') }}">
+                {% if c.get('label') %}<div class="s-col-label">{{ c['label'] }}</div>{% endif %}
+                <div class="s-fields{{ ' inline' if c.get('inline') }}">
+                  {% for fl in c['fields'] %}
+                    {% if fl.kind == 'checkbox' %}
+                      <label class="chk-inline">
+                        <input type="checkbox" name="{{ fl.name }}" data-kind="checkbox" {% if fl.value %}checked{% endif %}>
+                        <span class="s-caption">{{ fl.label }}</span>
+                      </label>
+                    {% elif fl.kind == 'info' %}
+                      <div class="s-info">
+                        <span class="s-caption">{{ fl.label }}</span>
+                        <span class="s-info-value">{{ fl.value }}</span>
+                      </div>
+                    {% else %}
+                      <div class="s-field" {% if fl.depends %}data-depends="{{ fl.depends }}"{% endif %}>
+                        {% if not c.get('label') and not fl.get('pre') %}<span class="s-caption">{{ fl.label }}</span>{% endif %}
+                        {% if fl.kind == 'textarea' %}
+                          <textarea name="{{ fl.name }}" data-kind="textarea" maxlength="{{ fl.maxlength }}" rows="3">{{ fl.value or '' }}</textarea>
+                        {% elif fl.kind == 'combo' %}
+                          <div class="combo" data-name="{{ fl.name }}" data-multi="{{ 1 if fl.multiple else 0 }}" {% if fl.listwrap %}data-listwrap="1"{% endif %} {% if fl.depends %}data-depends="{{ fl.depends }}"{% endif %}>
+                            <input type="text" class="combo-input" data-kind="combo-input" data-for="{{ fl.name }}"
+                                   list="dl-{{ fl.name }}" value="{{ fl.display }}" autocomplete="off" spellcheck="false"
+                                   placeholder="{{ fl.placeholder or '' }}">
+                            <datalist id="dl-{{ fl.name }}">
+                              {% for o in fl.options %}<option value="{{ o.text }}"></option>{% endfor %}
+                            </datalist>
+                            <input type="hidden" name="{{ fl.name }}" class="combo-value" data-kind="combo-value" value='{{ fl.codes_json }}' {% if fl.allow_empty %}data-allow-empty="1"{% endif %}>
+                            {% if fl.multiple %}
+                              <div class="combo-chips">
+                                {% for t in fl.labels %}
+                                  <span class="chip" data-code="{{ fl.selected[loop.index0] }}">{{ t }}<button type="button" class="chip-x" title="Убрать">×</button></span>
+                                {% endfor %}
+                              </div>
+                            {% endif %}
+                          </div>
+                        {% elif fl.kind == 'number' %}
+                          {% if fl.get('pre') %}<span class="s-pre">{{ fl.get('pre') }}</span>{% endif %}
+                          <input type="number" name="{{ fl.name }}" data-kind="number" value="{{ fl.value if fl.value is not none else '' }}"
+                                 min="{{ fl.min }}" max="{{ fl.max }}" step="{{ fl.step }}">
+                        {% else %}
+                          <input type="text" name="{{ fl.name }}" data-kind="text" value="{{ fl.value or '' }}"
+                                 {% if fl.maxlength %}maxlength="{{ fl.maxlength }}"{% endif %}>
+                        {% endif %}
+                      </div>
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              </div>
+            {% endfor %}
+          </div>
           {% endfor %}
-        </tbody>
-      </table>
-      {% else %}
-        <div class="empty">Программ не найдено.</div>
+          <div class="settings-actions">
+            <button type="button" class="btn btn-primary" id="progSaveBtn" onclick="saveSettings()">Сохранить изменения</button>
+            <span class="small muted" id="progSaveMsg"></span>
+            <span class="small muted settings-note">Изменения вносятся в программу в настоящем навигаторе (booking.dop29.ru).</span>
+          </div>
+        </div>
+      </div>
+      <script>window.COMBO_CODES = {{ combos | safe }};</script>
       {% endif %}
-    </div>
+      <div class="panel">
+        {% if groups %}
+        <table>
+          <thead>
+            <tr><th>Группа</th><th>ID</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for g in groups %}
+            <tr>
+              <td>{{ g.get('name') }}</td>
+              <td class="num">{{ g.get('id') }}</td>
+              <td><a class="btn btn-sm" href="{{ url_for('group_page', group_id=g['id']) }}">Открыть</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+          <div class="empty">У программы пока нет групп.</div>
+        {% endif %}
+      </div>
+    {% elif focus %}
+      <h1 style="margin-top:0;">Программа</h1>
+      <p class="small muted mb"><a href="{{ url_for('programs') }}">← Ко всем программам</a></p>
+      <div class="panel">
+        <div class="empty">Программа не найдена.</div>
+      </div>
+    {% else %}
+      <h1 style="margin-top:0;">Программы</h1>
+      <div class="panel">
+        {% if programs %}
+        <table>
+          <thead>
+            <tr><th>Название</th><th>ID</th><th>Групп</th><th></th></tr>
+          </thead>
+          <tbody>
+            {% for p in programs %}
+            <tr>
+              <td>
+                <a href="{{ url_for('program_page', event_id=p['id']) }}">{{ p.get('name') }}</a>
+              </td>
+              <td class="num">{{ p.get('id') }}</td>
+              <td class="num">—</td>
+              <td><a class="btn btn-sm" href="{{ url_for('program_page', event_id=p['id']) }}">Открыть</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+          <div class="empty">Программ не найдено.</div>
+        {% endif %}
+      </div>
+    {% endif %}
   </div>
 
   <aside class="quick">
     <div class="cell">
       <h4>Действия с программами</h4>
       <p class="small muted mb">Создание/редактирование программ и настройки появятся в следующих версиях.</p>
-      <select class="group-select" id="progSelect">
-        {% for p in programs %}
-          <option value="{{ p['id'] }}">{{ p.get('name') }}</option>
-        {% endfor %}
-      </select>
+      <input type="text" class="group-select" id="progSelect" list="dlProg" autocomplete="off" spellcheck="false" placeholder="Начните вводить название…">
+      <datalist id="dlProg">
+        {% for p in programs %}<option value="{{ p.get('name') }}"></option>{% endfor %}
+      </datalist>
       <button class="qact" id="btnOpenProgram">→ Открыть страницу программы</button>
+      <script>window.PROG_IDS = [{% for p in programs %}{{ "," if not loop.first }}[{{ p.get('name') | tojson }}, {{ p['id'] | tojson }}]{% endfor %}];</script>
     </div>
   </aside>
 </div>
@@ -51,8 +150,185 @@
 {% block scripts %}
 <script>
   document.getElementById('btnOpenProgram').addEventListener('click', function () {
-    var id = document.getElementById('progSelect').value;
+    var name = (document.getElementById('progSelect').value || '').trim();
+    var id = '';
+    (window.PROG_IDS || []).forEach(function (row) {
+      if (String(row[0]).trim().toLowerCase() === name.toLowerCase()) { id = row[1]; }
+    });
+    if (!id && /^\d+$/.test(name)) { id = name; }
     if (id) { window.location.href = "/programs/" + id; }
+    else { alert('Выберите программу из подсказок или введите её ID.'); }
   });
+
+  // ---------- Основные настройки программы: сворачивание ----------
+  var settingsToggle = document.querySelector('.settings-toggle');
+  function toggleSettings() {
+    var body = document.getElementById('progSettingsBody');
+    var open = body.hidden;
+    body.hidden = !open;
+    settingsToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    settingsToggle.querySelector('.settings-chev').textContent = open ? '▾' : '▸';
+    settingsToggle.querySelector('.settings-hint').textContent = open ? '' : 'свернуть';
+    if (open) syncDepends();
+  }
+  // зависимые поля (Заболевание — при ОВЗ, Тип программы — при адаптации для инвалидов)
+  function syncDepends() {
+    document.querySelectorAll('[data-depends]').forEach(function (el) {
+      var cbName = el.getAttribute('data-depends');
+      var cb = document.querySelector('input[data-kind="checkbox"][name="' + cbName + '"]');
+      var on = cb ? cb.checked : false;
+      el.classList.toggle('disabled', !on);
+      el.querySelectorAll('input, textarea, select').forEach(function (ctl) {
+        ctl.disabled = !on;   // включая скрытое поле — иначе оно уйдёт в payload
+      });
+    });
+  }
+  document.querySelectorAll('input[data-kind="checkbox"]').forEach(function (cb) {
+    cb.addEventListener('change', syncDepends);
+  });
+
+  // ---------- Combobox (input + datalist, без <select>) ----------
+  function comboRows(combo) {
+    return (window.COMBO_CODES || {})[combo.getAttribute('data-name')] || [];
+  }
+  // подпись -> код (регистронезависимо); undefined — значения нет в справочнике
+  function comboCode(combo, text) {
+    var t = (text || '').trim().toLowerCase();
+    if (!t) { return undefined; }
+    var rows = comboRows(combo);
+    for (var i = 0; i < rows.length; i++) {
+      if (String(rows[i][0]).trim().toLowerCase() === t) { return rows[i][1]; }
+    }
+    return undefined;
+  }
+  function comboIsMulti(combo) { return combo.getAttribute('data-multi') === '1'; }
+  function comboHidden(combo) { return combo.querySelector('.combo-value'); }
+  function comboChips(combo) { return combo.querySelector('.combo-chips'); }
+  function chipHtml(label, code) {
+    return '<span class="chip" data-code="' + code + '">' +
+      String(label).replace(/[<>&]/g, '') +
+      '<button type="button" class="chip-x" title="Убрать">×</button></span>';
+  }
+  // одиночный combobox: текст в поле -> код в hidden
+  function comboCommitOne(combo) {
+    var input = combo.querySelector('.combo-input');
+    var hidden = comboHidden(combo);
+    if (!input || !hidden) { return; }
+    var code = comboCode(combo, input.value);
+    combo.classList.toggle('is-invalid', input.value.trim() !== '' && code === undefined);
+    hidden.value = code === undefined ? '""' : JSON.stringify(code);
+  }
+  // множественный: введённое (через запятую) превращается в чипы
+  function comboCommitMany(combo) {
+    var input = combo.querySelector('.combo-input');
+    var chips = comboChips(combo);
+    var hidden = comboHidden(combo);
+    if (!input || !hidden || !chips) { return; }
+    var codes = JSON.parse(hidden.value || '[]');
+    var parts = (input.value || '').split(/[,;]/).map(function (s) { return s.trim(); })
+      .filter(function (s) { return s; });
+    var bad = false;
+    parts.forEach(function (p) {
+      var code = comboCode(combo, p);
+      if (code === undefined) { bad = true; return; }
+      if (codes.indexOf(String(code)) === -1) {
+        codes.push(String(code));
+        chips.insertAdjacentHTML('beforeend', chipHtml(p, code));
+      }
+    });
+    if (parts.length) { input.value = ''; }
+    combo.classList.toggle('is-invalid', bad);
+    hidden.value = JSON.stringify(codes);
+  }
+  function comboCommit(combo) {
+    if (comboIsMulti(combo)) { comboCommitMany(combo); } else { comboCommitOne(combo); }
+  }
+  document.querySelectorAll('.combo').forEach(function (combo) {
+    var input = combo.querySelector('.combo-input');
+    input.addEventListener('change', function () { comboCommit(combo); });
+    input.addEventListener('blur', function () { comboCommit(combo); });
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); comboCommit(combo); }
+    });
+    combo.addEventListener('click', function (e) {          // удаление чипа по «×»
+      var x = e.target.closest('.chip-x');
+      if (!x) { return; }
+      var chip = x.closest('.chip');
+      var code = chip.getAttribute('data-code');
+      var hidden = comboHidden(combo);
+      var codes = JSON.parse(hidden.value || '[]').filter(function (c) { return String(c) !== String(code); });
+      hidden.value = JSON.stringify(codes);
+      chip.remove();
+    });
+  });
+
+  // ---------- Сохранение ----------
+  function collectForm() {
+    var data = {};
+    document.querySelectorAll('#progSettingsBody [data-kind]').forEach(function (el) {
+      if (el.disabled) { return; }
+      var name = el.getAttribute('name');
+      var kind = el.getAttribute('data-kind');
+      if (kind === 'combo-value') {
+        var combo = el.closest('.combo');
+        var isList = el.hasAttribute('data-listwrap') || combo.hasAttribute('data-listwrap') ||
+                     combo.getAttribute('data-multi') === '1';
+        var raw = (el.value || '').trim();
+        if (raw === '' || raw === '""' || raw === '[]') {
+          // пустое значение: список/«уровни» -> [], необязательное одиночное -> null,
+          // обязательное одиночное -> не трогаем (поле не уходит в запрос)
+          if (isList) {
+            data[name] = [];
+          } else if (el.getAttribute('data-allow-empty') === '1') {
+            data[name] = null;
+          }
+          return;
+        }
+        var parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          data[name] = parsed.map(function (c) { return /^-?\d+$/.test(c) ? Number(c) : c; });
+        } else {
+          data[name] = /^-?\d+$/.test(parsed) ? Number(parsed) : parsed;
+          if (isList && !el.hasAttribute('data-listwrap') && combo.getAttribute('data-multi') !== '1') {
+            data[name] = [data[name]];   // одиночный combobox, который API ждёт списком
+          }
+        }
+        return;
+      }
+      if (!name) { return; }
+      if (kind === 'number') {
+        data[name] = el.value === '' ? null : Number(el.value);
+      } else if (kind === 'checkbox') {
+        data[name] = el.checked;
+      } else {
+        data[name] = el.value;
+      }
+    });
+    return data;
+  }
+  function saveSettings() {
+    var btn = document.getElementById('progSaveBtn');
+    var msg = document.getElementById('progSaveMsg');
+    var data = collectForm();
+    if (Object.keys(data).length === 0) { msg.textContent = 'Нет данных для сохранения.'; return; }
+    btn.disabled = true;
+    msg.textContent = 'Сохраняем…';
+    fetch('/programs/{{ program.id if program is defined and program else '' }}/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: data })
+    }).then(function (r) { return r.json(); }).then(function (res) {
+      if (res.ok) {
+        msg.textContent = '✓ Сохранено. Обновляем страницу…';
+        setTimeout(function () { window.location.reload(); }, 700);
+      } else {
+        msg.textContent = '✕ ' + (res.error || 'Ошибка сохранения');
+        btn.disabled = false;
+      }
+    }).catch(function () {
+      msg.textContent = '✕ Ошибка сети';
+      btn.disabled = false;
+    });
+  }
 </script>
 {% endblock %}

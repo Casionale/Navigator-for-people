@@ -981,6 +981,34 @@ class NavigatorClient:
 
         return self._cached(f"dict:{name}", 600, build)
 
+    def get_significant_regional_projects(self):
+        """Список значимых региональных проектов (без удалённых)."""
+        def build():
+            try:
+                b = self._get(
+                    "/api/rest/significant-regional-projects",
+                    {"length": 500},
+                    silent=True,
+                )
+                data = self._data(b) or []
+                return [r for r in data if not r.get("is_deleted")]
+            except NavigatorError:
+                return []
+
+        return self._cached("significant_regional_projects", 600, build)
+
+    # ------------------------------------------------------------------ правка программы
+    def save_program(self, event_id, data):
+        """Обновление основных настроек программы.
+
+        Частичное обновление: PUT /api/rest/events/{id} с телом {"data": {...}},
+        как это делает настоящий навигатор (ExtJS RestModel). Возвращает ответ API.
+        """
+        payload = {"data": dict(data, id=event_id)}
+        b = self._put(f"/api/rest/events/{event_id}", payload)
+        self._invalidate(f"program:{event_id}", "programs")
+        return b
+
     def get_cancel_reasons(self, state="initial"):
         """Причины отмены заявки (словарь navOrderCancelReason), фильтр по статусу."""
         def build():
