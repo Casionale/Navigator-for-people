@@ -52,7 +52,7 @@
   <div class="attendance-grid">
     <table>
       <thead>
-        <tr><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Группа</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th></tr>
+        <tr><th class="rownum">№</th><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Группа</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th></tr>
       </thead>
       <tbody id="ordersTbody">
         {% for o in orders %}
@@ -60,6 +60,7 @@
         <tr class="order-row" data-id="{{ o.get('id') }}" data-kid="{{ o.get('kid_id') }}"
             data-group="{{ o.get('fact_group_id') or o.get('group_id') or '' }}"
             data-state="{{ st }}" style="cursor:pointer;">
+          <td class="rownum" onclick="event.stopPropagation();"></td>
           <td class="sel-col" onclick="event.stopPropagation();">
             <input type="checkbox" class="order-check" value="{{ o.get('id') }}"
                    data-kid="{{ o.get('kid_id') }}"
@@ -186,7 +187,7 @@ function openOrder(tr, orderId) {
 
   odRow = document.createElement('tr');
   odRow.className = 'detail-row';
-  odRow.innerHTML = '<td colspan="6"><div class="od-loading">Загрузка заявки #' +
+  odRow.innerHTML = '<td colspan="7"><div class="od-loading">Загрузка заявки #' +
                     esc(orderId) + '…</div></td>';
   tr.after(odRow);
   odTbody.classList.add('row-open');
@@ -195,7 +196,7 @@ function openOrder(tr, orderId) {
     .then(function (res) {
       if (!odRow || !odRow.parentNode) return;
       if (!res.ok) {
-        odRow.innerHTML = '<td colspan="6"><div class="od-msg err">' +
+        odRow.innerHTML = '<td colspan="7"><div class="od-msg err">' +
           esc(res.error || 'Не удалось загрузить') + '</div></td>';
         return;
       }
@@ -203,7 +204,7 @@ function openOrder(tr, orderId) {
     })
     .catch(function () {
       if (odRow && odRow.parentNode) {
-        odRow.innerHTML = '<td colspan="6"><div class="od-msg err">Ошибка сети</div></td>';
+        odRow.innerHTML = '<td colspan="7"><div class="od-msg err">Ошибка сети</div></td>';
       }
     });
 }
@@ -237,7 +238,7 @@ function showOrder(res) {
   info.push(fieldRow('Дата отчисления', (o.date_deduct || '').slice ? String(o.date_deduct).slice(0,10) : ''));
   info.push(fieldRow('Ребёнок подтверждён', o.kid_is_approved === true ? 'да' : (o.kid_is_approved === false ? 'нет' : '')));
   info.push(fieldRow('Сайт-пользователь', o.site_user_id));
-  var html = '<td colspan="6">' +
+  var html = '<td colspan="7">' +
     '<div class="od-head">Заявка #' + esc(o.id) + ' — ' + esc(o.kid_fio || 'ребёнок') + ' ' +
       stateTagHtml(st) +
       ' <button type="button" class="btn btn-sm" onclick="removeOdRow()">Закрыть</button></div>' +

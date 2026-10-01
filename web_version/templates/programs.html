@@ -82,11 +82,12 @@
         {% if groups %}
         <table>
           <thead>
-            <tr><th>Группа</th><th>ID</th><th></th></tr>
+            <tr><th class="rownum">№</th><th>Группа</th><th>ID</th><th></th></tr>
           </thead>
           <tbody>
             {% for g in groups %}
             <tr>
+              <td class="rownum"></td>
               <td>{{ g.get('name') }}</td>
               <td class="num">{{ g.get('id') }}</td>
               <td><a class="btn btn-sm" href="{{ url_for('group_page', group_id=g['id']) }}">Открыть</a></td>
@@ -110,11 +111,12 @@
         {% if programs %}
         <table>
           <thead>
-            <tr><th>Название</th><th>ID</th><th>Групп</th><th></th></tr>
+            <tr><th class="rownum">№</th><th>Название</th><th>ID</th><th>Групп</th><th></th></tr>
           </thead>
           <tbody>
             {% for p in programs %}
             <tr>
+              <td class="rownum"></td>
               <td>
                 <a href="{{ url_for('program_page', event_id=p['id']) }}">{{ p.get('name') }}</a>
               </td>

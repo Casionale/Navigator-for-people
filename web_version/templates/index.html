@@ -30,12 +30,13 @@
         <div class="program-body">
           <table class="sortable-table">
             <thead>
-              <tr><th class="sortable num" data-sort="id" title="Сортировать по ID">ID</th><th class="sortable" data-sort="name">Группа</th><th class="sortable" data-sort="teacher">Преподаватель</th><th class="sortable" data-sort="count">Учащихся</th><th class="sortable" data-sort="age">Возраст</th><th></th></tr>
+              <tr><th class="rownum">№</th><th class="sortable num" data-sort="id" title="Сортировать по ID">ID</th><th class="sortable" data-sort="name">Группа</th><th class="sortable" data-sort="teacher">Преподаватель</th><th class="sortable" data-sort="count">Учащихся</th><th class="sortable" data-sort="age">Возраст</th><th></th></tr>
             </thead>
             <tbody>
               {% for g in item.groups %}
               <tr data-id="{{ g['id'] }}" data-name="{{ g.get('name') or '' }}" data-teacher="{{ g.get('teacher') or '' }}"
                   data-count="{{ g.get('_approve') if g.get('_approve') is not none else 0 }}" data-age="{{ g.get('age_from') if g.get('age_from') is not none else '' }}">
+                <td class="rownum"></td>
                 <td class="num"><a href="{{ url_for('group_page', group_id=g['id']) }}">{{ g['id'] }}</a></td>
                 <td><a href="{{ url_for('group_page', group_id=g['id']) }}">{{ g['name'] }}</a></td>
                 <td>{{ g.get('teacher') or '—' }}</td>
@@ -552,6 +553,7 @@
       th.classList.remove('srt-asc', 'srt-desc');
       if (th.getAttribute('data-sort') === key) th.classList.add(dir === 'asc' ? 'srt-asc' : 'srt-desc');
     });
+    if (window.renumberTable) window.renumberTable(table);
   }
   document.querySelectorAll('table.sortable-table').forEach(function (table) {
     var state = {};               // {key: 'asc'|'desc'}

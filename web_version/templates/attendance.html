@@ -12,10 +12,11 @@
     </div>
     <div class="program-body">
       <table>
-        <thead><tr><th>Группа</th><th>Преподаватель</th><th>Учащихся</th><th></th></tr></thead>
+        <thead><tr><th class="rownum">№</th><th>Группа</th><th>Преподаватель</th><th>Учащихся</th><th></th></tr></thead>
         <tbody>
           {% for g in item.groups %}
           <tr>
+            <td class="rownum"></td>
             <td><a href="{{ url_for('group_page', group_id=g['id'], tab='attendance') }}">{{ g['name'] }}</a></td>
             <td>{{ g.get('teacher') or '—' }}</td>
             <td class="num enroll-cell">

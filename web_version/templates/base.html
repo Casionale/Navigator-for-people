@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Navigator API{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=23">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=24">
 </head>
 <body>
 <div id="jsErrorBar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:#b00020;color:#fff;padding:8px 12px;font:12px/1.4 monospace;white-space:pre-wrap;"></div>
@@ -120,6 +120,35 @@
   document.addEventListener('DOMContentLoaded', attachPanelRefresh);
 </script>
 <script>
+  // ——— Порядковый номер строк: колонка «№» (первая слева) ———
+  // Номер ставится скриптом, поэтому после сортировки и любых перерисовок
+  // таблиц «на месте» нумерация всегда соответствует текущему порядку строк.
+  window.renumberTable = function (tbl) {
+    if (!tbl || !tbl.querySelector('td.rownum')) return;
+    var n = 0;
+    for (var b = 0; b < tbl.tBodies.length; b++) {
+      var rows = tbl.tBodies[b].rows;
+      for (var i = 0; i < rows.length; i++) {
+        var cell = rows[i].cells[0];
+        if (!cell || !cell.classList.contains('rownum')) continue;
+        n++;
+        var s = String(n);
+        if (cell.textContent !== s) cell.textContent = s;   // без повторной мутации
+      }
+    }
+  };
+  window.renumberTables = function (root) {
+    var scope = root || document;
+    var tables = scope.querySelectorAll ? scope.querySelectorAll('table') : [];
+    for (var i = 0; i < tables.length; i++) window.renumberTable(tables[i]);
+    if (scope.tagName === 'TABLE') window.renumberTable(scope);
+  };
+  document.addEventListener('DOMContentLoaded', function () { window.renumberTables(); });
+  // перерисовка таблиц скриптами (обновление панели, загрузка заявок и т.п.)
+  new MutationObserver(function () { window.renumberTables(); })
+    .observe(document.documentElement, { childList: true, subtree: true });
+</script>
+<script>
   // ——— Сортировка таблиц по всем столбцам (клик по заголовку) ———
   // Не применяется к классам .no-sort, .matrix и .sortable-table
   // (последний уже сортируется своим скриптом на главной).
@@ -138,6 +167,7 @@
       var ths = Array.prototype.slice.call(head.querySelectorAll('th'));
       var state = {};
       ths.forEach(function (th, col) {
+        if (th.classList.contains('rownum')) return;   // «№» не сортируется
         th.title = 'Сортировать по столбцу';
         th.style.cursor = 'pointer';
         th.classList.add('sortable');
@@ -168,6 +198,7 @@
           items.forEach(function (it) { tbody.appendChild(it.row); if (it.sticky) tbody.appendChild(it.sticky); });
           ths.forEach(function (th2) { th2.classList.remove('srt-asc', 'srt-desc'); });
           th.classList.add(dir === 'asc' ? 'srt-asc' : 'srt-desc');
+          if (window.renumberTable) window.renumberTable(tbl);   // пересчёт «№»
         });
       });
     }

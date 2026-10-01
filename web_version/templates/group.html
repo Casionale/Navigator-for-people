@@ -92,11 +92,12 @@
   <div class="attendance-grid">
     <table>
       <thead>
-        <tr><th>День</th><th>Дата</th><th>Тема</th><th>Типы</th><th>Описание</th><th>Активно</th></tr>
+        <tr><th class="rownum">№</th><th>День</th><th>Дата</th><th>Тема</th><th>Типы</th><th>Описание</th><th>Активно</th></tr>
       </thead>
       <tbody>
         {% for l in lessons %}
         <tr>
+          <td class="rownum"></td>
           <td class="num">{{ (l.get('date') or '')[:10][8:10] }}</td>
           <td class="num">{{ (l.get('date') or '')[:10] }}</td>
           <td>{{ l.get('theme') or '—' }}</td>
@@ -109,7 +110,7 @@
           <td>{{ '✓' if l.get('active') else '—' }}</td>
         </tr>
         {% else %}
-          <tr><td colspan="6" class="empty">На этот месяц занятий (КТП) нет.</td></tr>
+          <tr><td colspan="7" class="empty">На этот месяц занятий (КТП) нет.</td></tr>
         {% endfor %}
       </tbody>
     </table>
@@ -163,13 +164,14 @@
   <div class="attendance-grid">
     <table>
       <thead>
-        <tr><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th><th></th></tr>
+        <tr><th class="rownum">№</th><th class="sel-col"><input type="checkbox" id="ordersSelectAll" class="order-check" title="Выбрать всех"></th><th>Ребёнок</th><th>Статус</th><th>Акад. год</th><th>Дата создания</th><th></th></tr>
       </thead>
       <tbody id="ordersBody">
         {% for o in orders %}
         {% set st = o.get('state') or o.get('state_grid') %}
         {% set can = st in ('initial', 'approve', 'study') %}
         <tr data-state="{{ st }}">
+          <td class="rownum"></td>
           <td class="sel-col">
             <input type="checkbox" class="order-check" value="{{ o.get('id') }}"
                    data-kid="{{ o.get('kid_id') }}" data-state="{{ st }}"{{ '' if can else ' disabled' }}>
@@ -384,7 +386,7 @@
   <div class="attendance-grid mt">
     <table>
       <thead>
-        <tr><th>Дни</th><th>Время</th><th>Длительность</th><th>Перерыв</th><th>Период</th><th>Год</th><th>Действия</th></tr>
+        <tr><th class="rownum">№</th><th>Дни</th><th>Время</th><th>Длительность</th><th>Перерыв</th><th>Период</th><th>Год</th><th>Действия</th></tr>
       </thead>
       <tbody>
         {% for s in schedule %}
@@ -396,6 +398,7 @@
             data-duration="{{ s.get('duration') }}"
             data-duration-length="{{ s.get('duration_length') }}"
             data-breaks="{{ (s.get('breaks') or [])|join(',') }}">
+          <td class="rownum"></td>
           <td>
             {% for d in (s.get('week_days') or []) %}
               <span class="tag tag-accent">{{ WD.get(d, d) }}</span>

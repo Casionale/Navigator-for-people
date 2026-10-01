@@ -257,6 +257,10 @@ th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--bor
 th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 tbody tr:hover { background: var(--panel2); }
 td.num, th.num { text-align: right; }
+/* ---------- Порядковый номер строки (колонка «№» слева) ---------- */
+:root { --rownum-w: 38px; }
+th.rownum, td.rownum { width: 1%; min-width: 38px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
+td.rownum { color: var(--text); opacity: .75; }
 /* ---------- Ячейка «Учащихся» (+новые ✓принятые 🎓 принятые/max) ---------- */
 td.enroll-cell { white-space: nowrap; text-align: right; }
 .enroll-cell .e-initial { color: var(--accent); font-weight: 600; margin-right: 10px; }
@@ -307,16 +311,25 @@ button { cursor: pointer; }
 
 /* ---------- Матрица посещаемости / КТП ---------- */
 table.matrix th.num, table.matrix td.num { text-align: center; padding: 6px 2px; min-width: 42px; }
+/* колонка «№» в матрице: фиксированная ширина, чтобы «Ребёнок» правильно прилипал */
+table.matrix th.rownum, table.matrix td.rownum {
+  width: var(--rownum-w); min-width: var(--rownum-w); max-width: var(--rownum-w);
+  padding-left: 0; padding-right: 0; text-align: center;
+}
 .matrix thead th { background: var(--panel2); border-bottom: 2px solid var(--border); white-space: nowrap; }
 .matrix thead th:first-child { text-align: left; }
+.matrix thead th.rownum { text-align: center; }
 .matrix tbody tr:first-child td { border-top: 2px solid var(--border); }
 .matrix td.matrix-name { border-right: 2px solid var(--border); }
 .matrix thead th:not(:first-child) { border-left: 1px solid var(--border); }
-/* первая (имённая) колонка липнет слева при горизонтальной прокрутке */
-.matrix th:first-child, .matrix td:first-child {
-  position: sticky; left: 0; z-index: 1; background: var(--panel);
+.matrix th:first-child, .matrix td:first-child,
+.matrix th:nth-child(2), .matrix td:nth-child(2) {
+  position: sticky; z-index: 1; background: var(--panel);
 }
-.matrix thead th:first-child { z-index: 2; background: var(--panel2); }
+.matrix th:first-child, .matrix td:first-child { left: 0; }
+.matrix th:nth-child(2), .matrix td:nth-child(2) { left: var(--rownum-w); }
+.matrix thead th:first-child, .matrix thead th:nth-child(2) { z-index: 2; background: var(--panel2); }
+.matrix thead th:nth-child(2) { text-align: left; }
 .matrix-dd { font-size: 14px; font-weight: 700; }
 .matrix-wd { font-size: 11px; color: var(--muted); }
 .matrix-name { min-width: 200px; white-space: nowrap; font-weight: 500; }
