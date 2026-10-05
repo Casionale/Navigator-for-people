@@ -733,6 +733,7 @@
       html += '<div class="small muted mt"><b>Найденные дети</b>:</div>';
       html += '<div class="small muted">Выберите ребёнка:</div>';
       html += '<div class="cand-list">';
+      html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="" data-su="" ' + ((st.kid_id === '' || !st.kid_id) ? 'checked' : '') + '> <span class="muted">— не выбирать —</span></label>';
       // список кандидатов
       var empty = true;
       for (var cid in st.cands) {
