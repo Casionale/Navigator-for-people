@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #f4f5f7;
   --panel: #ffffff;
   --panel2: #eef0f3;
@@ -37,7 +37,7 @@
   --shadow: 0 1px 2px rgba(0,0,0,.4), 0 8px 24px rgba(0,0,0,.4);
 }
 
-/* --- Сепия (тёплая, 'бумага') --- */
+/* --- РЎРµРїРёСЏ (С‚С‘РїР»Р°СЏ, 'Р±СѓРјР°РіР°') --- */
 [data-theme="sepia"] {
   --bg: #f1e6d2;
   --panel: #fffaf0;
@@ -57,7 +57,7 @@
   --radius: 14px;
   --shadow: 0 1px 2px rgba(90, 60, 20, .10), 0 8px 24px rgba(90, 60, 20, .10);
 }
-/* --- Салатовая (светлая, свежая) --- */
+/* --- РЎР°Р»Р°С‚РѕРІР°СЏ (СЃРІРµС‚Р»Р°СЏ, СЃРІРµР¶Р°СЏ) --- */
 [data-theme="salad"] {
   --bg: #eef6ec;
   --panel: #ffffff;
@@ -76,7 +76,7 @@
   --warn-soft: #f7efd9;
   --shadow: 0 1px 2px rgba(40, 80, 40, .08), 0 8px 24px rgba(40, 80, 40, .08);
 }
-/* --- Океан (тёмно-синяя) --- */
+/* --- РћРєРµР°РЅ (С‚С‘РјРЅРѕ-СЃРёРЅСЏСЏ) --- */
 [data-theme="ocean"] {
   --bg: #08121f;
   --panel: #0e1d31;
@@ -95,7 +95,7 @@
   --warn-soft: #3a3217;
   --shadow: 0 1px 2px rgba(0,0,0,.45), 0 8px 24px rgba(0,0,0,.45);
 }
-/* --- Аниме (Сакура) --- */
+/* --- РђРЅРёРјРµ (РЎР°РєСѓСЂР°) --- */
 [data-theme="anime"] {
   --bg: #fdf0f4;
   --panel: #ffffff;
@@ -116,12 +116,12 @@
   --radius-sm: 12px;
   --shadow: 0 1px 2px rgba(255, 92, 158, .12), 0 8px 24px rgba(255, 92, 158, .14);
 }
-/* Аниме-акценты: скругления и нежные рамки */
+/* РђРЅРёРјРµ-Р°РєС†РµРЅС‚С‹: СЃРєСЂСѓРіР»РµРЅРёСЏ Рё РЅРµР¶РЅС‹Рµ СЂР°РјРєРё */
 [data-theme="anime"] body { background-image: radial-gradient(circle at 1px 1px, rgba(255,92,158,.10) 1px, transparent 0); background-size: 22px 22px; }
 [data-theme="anime"] .nav-brand .dot { background: linear-gradient(135deg, #ff5c9e, #ffb1d0); box-shadow: 0 0 8px rgba(255,92,158,.6); }
 [data-theme="anime"] th.sortable:hover { color: var(--accent); }
 
-/* --- Фиолетовая мягкая --- */
+/* --- Р¤РёРѕР»РµС‚РѕРІР°СЏ РјСЏРіРєР°СЏ --- */
 [data-theme="violet"] {
   --bg: #f3f0f9;
   --panel: #ffffff;
@@ -141,7 +141,7 @@
   --shadow: 0 1px 2px rgba(100, 60, 180, .08), 0 8px 24px rgba(100, 60, 180, .09);
 }
 
-/* --- Токийский гуль (Уло) --- */
+/* --- РўРѕРєРёР№СЃРєРёР№ РіСѓР»СЊ (РЈР»Рѕ) --- */
 [data-theme="ghoul"] {
   --bg: #0c0c10;
   --panel: #17171c;
@@ -182,7 +182,7 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* ---------- Навбар ---------- */
+/* ---------- РќР°РІР±Р°СЂ ---------- */
 .nav {
   position: sticky; top: 0; z-index: 40;
   display: flex; align-items: center; gap: 10px;
@@ -220,7 +220,7 @@ a:hover { text-decoration: underline; }
 .grid-main { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
 @media (max-width: 900px) { .grid-main { grid-template-columns: 1fr; } .nav-links{display:flex;overflow-x:auto} }
 
-/* ---------- Бенто-карточки ---------- */
+/* ---------- Р‘РµРЅС‚Рѕ-РєР°СЂС‚РѕС‡РєРё ---------- */
 .bento { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(var(--cell,240px),1fr)); }
 .cell {
   background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
@@ -242,32 +242,32 @@ a:hover { text-decoration: underline; }
 .panel-refresh-float { position: absolute; top: 12px; right: 12px; }
 @keyframes panel-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 
-/* ---------- Архив (неактивные участники группы) ---------- */
+/* ---------- РђСЂС…РёРІ (РЅРµР°РєС‚РёРІРЅС‹Рµ СѓС‡Р°СЃС‚РЅРёРєРё РіСЂСѓРїРїС‹) ---------- */
 .archive-block { margin-top:16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel2); }
 .archive-block summary { cursor:pointer; padding:10px 14px; font-weight:600; color:var(--muted); display:flex; align-items:center; gap:8px; list-style:none; }
 .archive-block summary::-webkit-details-marker { display:none; }
-.archive-block summary::before { content:"›"; display:inline-block; transition:transform .15s; }
+.archive-block summary::before { content:"вЂє"; display:inline-block; transition:transform .15s; }
 .archive-block[open] summary::before { transform:rotate(90deg); }
 .archive-block[open] summary { border-bottom:1px solid var(--border); color:var(--text); }
 .archive-block .attendance-grid { padding:10px 14px 14px; }
 
-/* ---------- Таблицы ---------- */
+/* ---------- РўР°Р±Р»РёС†С‹ ---------- */
 table { width: 100%; border-collapse: collapse; }
 th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); font-size: 13px; }
 th { color: var(--muted); font-weight: 600; white-space: nowrap; }
 tbody tr:hover { background: var(--panel2); }
 td.num, th.num { text-align: right; }
-/* ---------- Порядковый номер строки (колонка «№» слева) ---------- */
+/* ---------- РџРѕСЂСЏРґРєРѕРІС‹Р№ РЅРѕРјРµСЂ СЃС‚СЂРѕРєРё (РєРѕР»РѕРЅРєР° В«в„–В» СЃР»РµРІР°) ---------- */
 :root { --rownum-w: 38px; }
 th.rownum, td.rownum { width: 1%; min-width: 38px; text-align: center; color: var(--muted); font-variant-numeric: tabular-nums; }
 td.rownum { color: var(--text); opacity: .75; }
-/* ---------- Ячейка «Учащихся» (+новые ✓принятые 🎓 принятые/max) ---------- */
+/* ---------- РЇС‡РµР№РєР° В«РЈС‡Р°С‰РёС…СЃСЏВ» (+РЅРѕРІС‹Рµ вњ“РїСЂРёРЅСЏС‚С‹Рµ рџЋ“ РїСЂРёРЅСЏС‚С‹Рµ/max) ---------- */
 td.enroll-cell { white-space: nowrap; text-align: right; }
 .enroll-cell .e-initial { color: var(--accent); font-weight: 600; margin-right: 10px; }
 .enroll-cell .e-ok { color: var(--ok); font-weight: 600; margin-right: 10px; }
 .enroll-cell .e-cap { color: var(--muted); font-weight: 500; }
 
-/* ---------- Формы ---------- */
+/* ---------- Р¤РѕСЂРјС‹ ---------- */
 input, select, textarea, button {
   font: inherit; color: var(--text);
   background: var(--panel2); border: 1px solid var(--border);
@@ -287,7 +287,7 @@ button { cursor: pointer; }
 .field input, .field select, .field textarea { width: 100%; }
 .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
 
-/* ---------- Тэги/статусы ---------- */
+/* ---------- РўСЌРіРё/СЃС‚Р°С‚СѓСЃС‹ ---------- */
 .tag { display: inline-block; padding: 3px 10px; border-radius: 999px; font-size: 12px; font-weight: 500; }
 .tag-ok { background: var(--ok-soft); color: var(--ok); }
 .tag-warn { background: var(--warn-soft); color: var(--warn); }
@@ -295,12 +295,12 @@ button { cursor: pointer; }
 .tag-accent { background: var(--accent-soft); color: var(--accent); }
 .tag-muted { background: var(--panel2); color: var(--muted); }
 
-/* ---------- Флеш ---------- */
+/* ---------- Р¤Р»РµС€ ---------- */
 .flash { padding: 12px 16px; border-radius: var(--radius-sm); margin-bottom: 14px; }
 .flash.ok { background: var(--ok-soft); color: var(--ok); }
 .flash.error { background: var(--danger-soft); color: var(--danger); }
 
-/* ---------- Посещаемость ---------- */
+/* ---------- РџРѕСЃРµС‰Р°РµРјРѕСЃС‚СЊ ---------- */
 .attendance-grid { overflow-x: auto; }
 .presence { width: 46px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
 .presence.yes { background: var(--ok-soft); color: var(--ok); }
@@ -309,9 +309,9 @@ button { cursor: pointer; }
 .presence.sick { background: var(--warn-soft); color: var(--warn); }
 .presence.other { background: var(--panel2); color: var(--muted); }
 
-/* ---------- Матрица посещаемости / КТП ---------- */
+/* ---------- РњР°С‚СЂРёС†Р° РїРѕСЃРµС‰Р°РµРјРѕСЃС‚Рё / РљРўРџ ---------- */
 table.matrix th.num, table.matrix td.num { text-align: center; padding: 6px 2px; min-width: 42px; }
-/* колонка «№» в матрице: фиксированная ширина, чтобы «Ребёнок» правильно прилипал */
+/* РєРѕР»РѕРЅРєР° В«в„–В» РІ РјР°С‚СЂРёС†Рµ: С„РёРєСЃРёСЂРѕРІР°РЅРЅР°СЏ С€РёСЂРёРЅР°, С‡С‚РѕР±С‹ В«Р РµР±С‘РЅРѕРєВ» РїСЂР°РІРёР»СЊРЅРѕ РїСЂРёР»РёРїР°Р» */
 table.matrix th.rownum, table.matrix td.rownum {
   width: var(--rownum-w); min-width: var(--rownum-w); max-width: var(--rownum-w);
   padding-left: 0; padding-right: 0; text-align: center;
@@ -346,12 +346,12 @@ table.matrix th.rownum, table.matrix td.rownum {
 .acell.other { background: var(--panel2); color: var(--muted); border: 1px solid var(--border); }
 .acell:disabled { opacity: .5; cursor: wait; }
 
-/* кликабельные шапки дней в сетке посещаемости */
+/* РєР»РёРєР°Р±РµР»СЊРЅС‹Рµ С€Р°РїРєРё РґРЅРµР№ РІ СЃРµС‚РєРµ РїРѕСЃРµС‰Р°РµРјРѕСЃС‚Рё */
 th.day-toggle { cursor: pointer; user-select: none; transition: background .15s; border-radius: 6px; }
 th.day-toggle:hover { background: var(--accent-soft); }
 th.day-toggle .matrix-wd { color: var(--accent); }
 
-/* кнопка «отменить день» в шапке столбца */
+/* РєРЅРѕРїРєР° В«РѕС‚РјРµРЅРёС‚СЊ РґРµРЅСЊВ» РІ С€Р°РїРєРµ СЃС‚РѕР»Р±С†Р° */
 th.day-toggle { position: relative; }
 .day-del { position: absolute; top: 2px; right: 3px; z-index: 3; width: 18px; height: 18px; line-height: 14px; padding: 0; font-size: 11px; border-radius: 50%; border: none; background: rgba(255,0,0,.08); color: var(--danger, #d33); cursor: pointer; opacity: 0; transition: opacity .15s; }
 th.day-toggle:hover .day-del, .day-del:hover { opacity: 1; }
@@ -366,7 +366,7 @@ th.day-toggle:hover .day-del, .day-del:hover { opacity: 1; }
 .program-body { display: none; padding-left: 8px; }
 .program-group.open .program-body { display: block; }
 
-/* ---------- Боковое меню быстрых действий ---------- */
+/* ---------- Р‘РѕРєРѕРІРѕРµ РјРµРЅСЋ Р±С‹СЃС‚СЂС‹С… РґРµР№СЃС‚РІРёР№ ---------- */
 .quick { position: sticky; top: 76px; }
 .quick .cell { padding: 14px; }
 .quick h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
@@ -478,7 +478,7 @@ th.sortable:hover { text-decoration:underline; }
 th.srt-asc::after { content:" \25B2"; font-size:10px; }
 th.srt-desc::after { content:" \25BC"; font-size:10px; }
 
-/* ---------- Тема: выпадающее меню ---------- */
+/* ---------- РўРµРјР°: РІС‹РїР°РґР°СЋС‰РµРµ РјРµРЅСЋ ---------- */
 .theme-menu { position: relative; display: inline-block; }
 .theme-btn {
   border: 1px solid var(--border); background: var(--panel2); color: var(--text);
@@ -495,15 +495,15 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   display: flex; align-items: center; gap: 10px; width: 100%;
   padding: 8px 10px; border: 0; border-radius: var(--radius-sm);
   background: transparent; color: var(--text); cursor: pointer; text-align: left; font-size: 13px;
-  /* У пункта есть свой data-theme — иначе он брал бы цвета СВОЕЙ темы и сливался
-     на фоне списка текущей темы (тёмные названия на белом и наоборот). */
+  /* РЈ РїСѓРЅРєС‚Р° РµСЃС‚СЊ СЃРІРѕР№ data-theme вЂ” РёРЅР°С‡Рµ РѕРЅ Р±СЂР°Р» Р±С‹ С†РІРµС‚Р° РЎР’РћР•Р™ С‚РµРјС‹ Рё СЃР»РёРІР°Р»СЃСЏ
+     РЅР° С„РѕРЅРµ СЃРїРёСЃРєР° С‚РµРєСѓС‰РµР№ С‚РµРјС‹ (С‚С‘РјРЅС‹Рµ РЅР°Р·РІР°РЅРёСЏ РЅР° Р±РµР»РѕРј Рё РЅР°РѕР±РѕСЂРѕС‚). */
   --text: inherit; --panel2: inherit;
 }
 .theme-item:hover { background: var(--panel2); }
 .theme-item.active { background: var(--accent-soft); color: var(--accent-text); font-weight: 600; }
 .theme-swatch { width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
 
-/* ---------- Карточка программы: основные настройки (сворачиваемая форма) ---------- */
+/* ---------- РљР°СЂС‚РѕС‡РєР° РїСЂРѕРіСЂР°РјРјС‹: РѕСЃРЅРѕРІРЅС‹Рµ РЅР°СЃС‚СЂРѕР№РєРё (СЃРІРѕСЂР°С‡РёРІР°РµРјР°СЏ С„РѕСЂРјР°) ---------- */
 .settings-panel { margin-bottom: 14px; padding: 0; overflow: hidden; }
 .settings-toggle {
   display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
@@ -542,7 +542,7 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
 .s-fields.inline .s-field input[type="number"] { flex: 0 1 110px; }
 .s-fields.inline select { flex: 0 0 130px; }
 
-/* ---------- Combobox: input + datalist + чипы ---------- */
+/* ---------- Combobox: input + datalist + С‡РёРїС‹ ---------- */
 .combo { display: flex; flex-direction: column; gap: 6px; min-width: 0; flex: 1; }
 .combo-input { width: 100%; box-sizing: border-box; cursor: pointer; }
 .combo.is-invalid .combo-input { border-color: var(--danger); }
@@ -570,9 +570,32 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   .settings-actions { padding-bottom: 0; }
 }
 
-/* ---------- ЧаВо (FAQ) ---------- */
+/* ---------- Р§Р°Р’Рѕ (FAQ) ---------- */
 .faq-item { padding: 14px 16px; }
 .faq-item + .faq-item { border-top: 1px solid var(--border); }
 .faq-q { font-weight: 600; font-size: 15px; color: var(--text); margin-bottom: 6px; }
 .faq-a { font-size: 14px; line-height: 1.55; color: var(--text); }
 
+
+/* ---------- Idle guard (5 min inactivity) ---------- */
+.idle-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1200ms ease, backdrop-filter 1200ms ease, -webkit-backdrop-filter 1200ms ease;
+  backdrop-filter: blur(8px) saturate(70%) contrast(90%);
+  -webkit-backdrop-filter: blur(8px) saturate(70%) contrast(90%);
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.26) 100%);
+  mix-blend-mode: multiply;
+  transform: translateZ(0);
+}
+.idle-shield.active {
+  opacity: 1;
+  pointer-events: none;
+}
+[data-theme="dark"] .idle-shield {
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.6) 100%);
+  mix-blend-mode: normal;
+}

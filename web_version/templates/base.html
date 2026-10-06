@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -12,36 +12,36 @@
   window.addEventListener('error', function (e) {
     var b = document.getElementById('jsErrorBar');
     if (!b) return;
-    b.textContent = 'JS-ошибка: ' + (e.message || (e.error && e.error.message) || e.type) +
+    b.textContent = 'JS-РѕС€РёР±РєР°: ' + (e.message || (e.error && e.error.message) || e.type) +
       ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
     b.style.display = 'block';
   });
 </script>
 {% if current_user %}
 <nav class="nav">
-  <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span> <span class="nav-ver">{{ app_version }}</span></div>
+  <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">ОІ</span> <span class="nav-ver">{{ app_version }}</span></div>
   <div class="nav-links">
-    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Главная</a>
-    <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
-    <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">Посещаемость</a>
-    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки<span class="nav-badge" id="navOrderBadge" style="display:none;">0</span></a>
-    <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
+    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Р“Р»Р°РІРЅР°СЏ</a>
+    <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">РџСЂРѕРіСЂР°РјРјС‹</a>
+    <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">РџРѕСЃРµС‰Р°РµРјРѕСЃС‚СЊ</a>
+    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Р—Р°СЏРІРєРё<span class="nav-badge" id="navOrderBadge" style="display:none;">0</span></a>
+    <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="РџРѕРёСЃРє СЂРµР±С‘РЅРєР° РїРѕ Р¤РРћ">рџ”Ќ РџРѕРёСЃРє</button>
   </div>
   <div class="nav-spacer"></div>
-  <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="Сбросить серверный кэш и перезагрузить данные">↻ Обновить</button>
-  <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">Попросить разработчика</button>
+  <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="РЎР±СЂРѕСЃРёС‚СЊ СЃРµСЂРІРµСЂРЅС‹Р№ РєСЌС€ Рё РїРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ">в†» РћР±РЅРѕРІРёС‚СЊ</button>
+  <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">РџРѕРїСЂРѕСЃРёС‚СЊ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєР°</button>
   <div class="nav-user">{{ current_user }}</div>
-  <label class="small muted" for="yearSelect">год</label>
-  <select id="yearSelect" class="btn-theme" title="Учебный год">
+  <label class="small muted" for="yearSelect">РіРѕРґ</label>
+  <select id="yearSelect" class="btn-theme" title="РЈС‡РµР±РЅС‹Р№ РіРѕРґ">
     {% for y in academic_years %}
       <option value="{{ y['id'] }}" {{ 'selected' if current_year == y['id']|string }}>{{ y['id'] }}</option>
     {% endfor %}
   </select>
   <div class="theme-menu" id="themeMenu">
-    <button type="button" class="theme-btn" id="themeBtn">🎨 Тема</button>
+    <button type="button" class="theme-btn" id="themeBtn">рџЋЁ РўРµРјР°</button>
     <div class="theme-list" id="themeList"></div>
   </div>
-  <a class="btn btn-sm" href="{{ url_for('logout') }}">Выход</a>
+  <a class="btn btn-sm" href="{{ url_for('logout') }}">Р’С‹С…РѕРґ</a>
 </nav>
 {% endif %}
 
@@ -57,7 +57,7 @@
 
 <script src="{{ url_for('static', filename='js/theme.js') }}?v=4"></script>
 <script>
-  // Смена учебного года в навбаре — обновляет данные страницы автоматически
+  // РЎРјРµРЅР° СѓС‡РµР±РЅРѕРіРѕ РіРѕРґР° РІ РЅР°РІР±Р°СЂРµ вЂ” РѕР±РЅРѕРІР»СЏРµС‚ РґР°РЅРЅС‹Рµ СЃС‚СЂР°РЅРёС†С‹ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё
   document.addEventListener('DOMContentLoaded', function () {
     var sel = document.getElementById('yearSelect');
     if (!sel) return;
@@ -73,20 +73,20 @@
       }).then(function (r) { return r.json(); }).then(function (res) {
         sel.disabled = false;
         if (res.ok) {
-          // перезагрузим текущую страницу — данные обновятся под новый год
+          // РїРµСЂРµР·Р°РіСЂСѓР·РёРј С‚РµРєСѓС‰СѓСЋ СЃС‚СЂР°РЅРёС†Сѓ вЂ” РґР°РЅРЅС‹Рµ РѕР±РЅРѕРІСЏС‚СЃСЏ РїРѕРґ РЅРѕРІС‹Р№ РіРѕРґ
           window.location.reload();
         } else {
-          alert(res.error || 'Не удалось сменить год');
+          alert(res.error || 'РќРµ СѓРґР°Р»РѕСЃСЊ СЃРјРµРЅРёС‚СЊ РіРѕРґ');
         }
       }).catch(function () {
         sel.disabled = false;
-        alert('Ошибка сети при смене года');
+        alert('РћС€РёР±РєР° СЃРµС‚Рё РїСЂРё СЃРјРµРЅРµ РіРѕРґР°');
       });
     });
   });
 </script>
 <script>
-  // ——— Жёсткое обновление: сброс серверного кэша + перезагрузка ———
+  // вЂ”вЂ”вЂ” Р–С‘СЃС‚РєРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ: СЃР±СЂРѕСЃ СЃРµСЂРІРµСЂРЅРѕРіРѕ РєСЌС€Р° + РїРµСЂРµР·Р°РіСЂСѓР·РєР° вЂ”вЂ”вЂ”
   function hardRefresh(btn) {
     if (btn && btn.disabled) return;
     if (btn) { btn.disabled = true; btn.classList.add('spin'); }
@@ -94,14 +94,14 @@
     fetch('/api/refresh', { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
       .then(function (r) { return r.json(); }).then(done, done);
   }
-  // Кнопка ↻ рядом с каждой таблицей (панели, группы программ).
+  // РљРЅРѕРїРєР° в†» СЂСЏРґРѕРј СЃ РєР°Р¶РґРѕР№ С‚Р°Р±Р»РёС†РµР№ (РїР°РЅРµР»Рё, РіСЂСѓРїРїС‹ РїСЂРѕРіСЂР°РјРј).
   function attachPanelRefresh() {
     function makeBtn() {
       var b = document.createElement('button');
       b.type = 'button';
       b.className = 'panel-refresh';
-      b.title = 'Сбросить серверный кэш и обновить данные';
-      b.setAttribute('aria-label', 'Обновить данные');
+      b.title = 'РЎР±СЂРѕСЃРёС‚СЊ СЃРµСЂРІРµСЂРЅС‹Р№ РєСЌС€ Рё РѕР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ';
+      b.setAttribute('aria-label', 'РћР±РЅРѕРІРёС‚СЊ РґР°РЅРЅС‹Рµ');
       b.innerHTML = '&#8635;';
       b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); hardRefresh(b); });
       return b;
@@ -120,9 +120,9 @@
   document.addEventListener('DOMContentLoaded', attachPanelRefresh);
 </script>
 <script>
-  // ——— Порядковый номер строк: колонка «№» (первая слева) ———
-  // Номер ставится скриптом, поэтому после сортировки и любых перерисовок
-  // таблиц «на месте» нумерация всегда соответствует текущему порядку строк.
+  // вЂ”вЂ”вЂ” РџРѕСЂСЏРґРєРѕРІС‹Р№ РЅРѕРјРµСЂ СЃС‚СЂРѕРє: РєРѕР»РѕРЅРєР° В«в„–В» (РїРµСЂРІР°СЏ СЃР»РµРІР°) вЂ”вЂ”вЂ”
+  // РќРѕРјРµСЂ СЃС‚Р°РІРёС‚СЃСЏ СЃРєСЂРёРїС‚РѕРј, РїРѕСЌС‚РѕРјСѓ РїРѕСЃР»Рµ СЃРѕСЂС‚РёСЂРѕРІРєРё Рё Р»СЋР±С‹С… РїРµСЂРµСЂРёСЃРѕРІРѕРє
+  // С‚Р°Р±Р»РёС† В«РЅР° РјРµСЃС‚РµВ» РЅСѓРјРµСЂР°С†РёСЏ РІСЃРµРіРґР° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ С‚РµРєСѓС‰РµРјСѓ РїРѕСЂСЏРґРєСѓ СЃС‚СЂРѕРє.
   window.renumberTable = function (tbl) {
     if (!tbl || !tbl.querySelector('td.rownum')) return;
     var n = 0;
@@ -133,7 +133,7 @@
         if (!cell || !cell.classList.contains('rownum')) continue;
         n++;
         var s = String(n);
-        if (cell.textContent !== s) cell.textContent = s;   // без повторной мутации
+        if (cell.textContent !== s) cell.textContent = s;   // Р±РµР· РїРѕРІС‚РѕСЂРЅРѕР№ РјСѓС‚Р°С†РёРё
       }
     }
   };
@@ -144,14 +144,14 @@
     if (scope.tagName === 'TABLE') window.renumberTable(scope);
   };
   document.addEventListener('DOMContentLoaded', function () { window.renumberTables(); });
-  // перерисовка таблиц скриптами (обновление панели, загрузка заявок и т.п.)
+  // РїРµСЂРµСЂРёСЃРѕРІРєР° С‚Р°Р±Р»РёС† СЃРєСЂРёРїС‚Р°РјРё (РѕР±РЅРѕРІР»РµРЅРёРµ РїР°РЅРµР»Рё, Р·Р°РіСЂСѓР·РєР° Р·Р°СЏРІРѕРє Рё С‚.Рї.)
   new MutationObserver(function () { window.renumberTables(); })
     .observe(document.documentElement, { childList: true, subtree: true });
 </script>
 <script>
-  // ——— Сортировка таблиц по всем столбцам (клик по заголовку) ———
-  // Не применяется к классам .no-sort, .matrix и .sortable-table
-  // (последний уже сортируется своим скриптом на главной).
+  // вЂ”вЂ”вЂ” РЎРѕСЂС‚РёСЂРѕРІРєР° С‚Р°Р±Р»РёС† РїРѕ РІСЃРµРј СЃС‚РѕР»Р±С†Р°Рј (РєР»РёРє РїРѕ Р·Р°РіРѕР»РѕРІРєСѓ) вЂ”вЂ”вЂ”
+  // РќРµ РїСЂРёРјРµРЅСЏРµС‚СЃСЏ Рє РєР»Р°СЃСЃР°Рј .no-sort, .matrix Рё .sortable-table
+  // (РїРѕСЃР»РµРґРЅРёР№ СѓР¶Рµ СЃРѕСЂС‚РёСЂСѓРµС‚СЃСЏ СЃРІРѕРёРј СЃРєСЂРёРїС‚РѕРј РЅР° РіР»Р°РІРЅРѕР№).
   (function () {
     function cellVal(td) {
       var t = (td ? td.textContent : '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -167,8 +167,8 @@
       var ths = Array.prototype.slice.call(head.querySelectorAll('th'));
       var state = {};
       ths.forEach(function (th, col) {
-        if (th.classList.contains('rownum')) return;   // «№» не сортируется
-        th.title = 'Сортировать по столбцу';
+        if (th.classList.contains('rownum')) return;   // В«в„–В» РЅРµ СЃРѕСЂС‚РёСЂСѓРµС‚СЃСЏ
+        th.title = 'РЎРѕСЂС‚РёСЂРѕРІР°С‚СЊ РїРѕ СЃС‚РѕР»Р±С†Сѓ';
         th.style.cursor = 'pointer';
         th.classList.add('sortable');
         th.addEventListener('click', function (e) {
@@ -177,7 +177,7 @@
                     t.tagName === 'SELECT' || t.tagName === 'A')) return;
           var dir = state[col] === 'asc' ? 'desc' : 'asc';
           state = {}; state[col] = dir;
-          // строки, прикрепляя к каждой раскрытый detail-row
+          // СЃС‚СЂРѕРєРё, РїСЂРёРєСЂРµРїР»СЏСЏ Рє РєР°Р¶РґРѕР№ СЂР°СЃРєСЂС‹С‚С‹Р№ detail-row
           var items = [];
           for (var i = 0; i < tbody.rows.length; i++) {
             var row = tbody.rows[i];
@@ -198,7 +198,7 @@
           items.forEach(function (it) { tbody.appendChild(it.row); if (it.sticky) tbody.appendChild(it.sticky); });
           ths.forEach(function (th2) { th2.classList.remove('srt-asc', 'srt-desc'); });
           th.classList.add(dir === 'asc' ? 'srt-asc' : 'srt-desc');
-          if (window.renumberTable) window.renumberTable(tbl);   // пересчёт «№»
+          if (window.renumberTable) window.renumberTable(tbl);   // РїРµСЂРµСЃС‡С‘С‚ В«в„–В»
         });
       });
     }
@@ -208,14 +208,14 @@
   })();
 </script>
 <script>
-  // ——— Счётчик новых заявок в навбаре ———
-  // Каждое обновление страницы (F5) и вход (логин) сбрасывают тайминг и
-  // запрос выполняется сразу. Далее — раз в 10 минут.
-  // Другие страницы могут принудительно обновить счётчик через
-  // window.refreshOrderBadge() или установить число через window.setOrderBadgeCount().
+  // вЂ”вЂ”вЂ” РЎС‡С‘С‚С‡РёРє РЅРѕРІС‹С… Р·Р°СЏРІРѕРє РІ РЅР°РІР±Р°СЂРµ вЂ”вЂ”вЂ”
+  // РљР°Р¶РґРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ СЃС‚СЂР°РЅРёС†С‹ (F5) Рё РІС…РѕРґ (Р»РѕРіРёРЅ) СЃР±СЂР°СЃС‹РІР°СЋС‚ С‚Р°Р№РјРёРЅРі Рё
+  // Р·Р°РїСЂРѕСЃ РІС‹РїРѕР»РЅСЏРµС‚СЃСЏ СЃСЂР°Р·Сѓ. Р”Р°Р»РµРµ вЂ” СЂР°Р· РІ 10 РјРёРЅСѓС‚.
+  // Р”СЂСѓРіРёРµ СЃС‚СЂР°РЅРёС†С‹ РјРѕРіСѓС‚ РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕ РѕР±РЅРѕРІРёС‚СЊ СЃС‡С‘С‚С‡РёРє С‡РµСЂРµР·
+  // window.refreshOrderBadge() РёР»Рё СѓСЃС‚Р°РЅРѕРІРёС‚СЊ С‡РёСЃР»Рѕ С‡РµСЂРµР· window.setOrderBadgeCount().
   (function () {
     var KEY = 'nav_orders_ts';
-    var INTERVAL = 10 * 60 * 1000; // 10 минут
+    var INTERVAL = 10 * 60 * 1000; // 10 РјРёРЅСѓС‚
     var badge = null;
 
     function renderBadge(count) {
@@ -230,21 +230,21 @@
       }
     }
 
-    // фоновый запрос точного числа
+    // С„РѕРЅРѕРІС‹Р№ Р·Р°РїСЂРѕСЃ С‚РѕС‡РЅРѕРіРѕ С‡РёСЃР»Р°
     function fetchCount() {
       try { localStorage.setItem(KEY, Date.now()); } catch (e) {}
       fetch('/api/orders_count').then(function (r) { return r.json() }).then(function (res) {
         if (res && res.ok) renderBadge(res.count);
       }).catch(function () {});
     }
-    // принудительное фоновое обновление (вызовут при загрузке и из др-места)
+    // РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅРѕРµ С„РѕРЅРѕРІРѕРµ РѕР±РЅРѕРІР»РµРЅРёРµ (РІС‹Р·РѕРІСѓС‚ РїСЂРё Р·Р°РіСЂСѓР·РєРµ Рё РёР· РґСЂ-РјРµСЃС‚Р°)
     window.refreshOrderBadge = fetchCount;
-    // мгновенно выставить число (вызовет вкладка «Заявки» из ответа сервера)
+    // РјРіРЅРѕРІРµРЅРЅРѕ РІС‹СЃС‚Р°РІРёС‚СЊ С‡РёСЃР»Рѕ (РІС‹Р·РѕРІРµС‚ РІРєР»Р°РґРєР° В«Р—Р°СЏРІРєРёВ» РёР· РѕС‚РІРµС‚Р° СЃРµСЂРІРµСЂР°)
     window.setOrderBadgeCount = renderBadge;
 
     function start() {
-      fetchCount(); // сразу при загрузке/логине — игнорируем прошлый тайминг
-      setInterval(fetchCount, INTERVAL); // и далее раз в 10 минут
+      fetchCount(); // СЃСЂР°Р·Сѓ РїСЂРё Р·Р°РіСЂСѓР·РєРµ/Р»РѕРіРёРЅРµ вЂ” РёРіРЅРѕСЂРёСЂСѓРµРј РїСЂРѕС€Р»С‹Р№ С‚Р°Р№РјРёРЅРі
+      setInterval(fetchCount, INTERVAL); // Рё РґР°Р»РµРµ СЂР°Р· РІ 10 РјРёРЅСѓС‚
     }
 
     if (document.readyState === 'loading') {
@@ -255,35 +255,35 @@
   })();
 </script>
 
-<!-- ============================ ГЛОБАЛЬНЫЙ ПОИСК РЕБЁНКА ============================ -->
+<!-- ============================ Р“Р›РћР‘РђР›Р¬РќР«Р™ РџРћРРЎРљ Р Р•Р‘РЃРќРљРђ ============================ -->
 <div class="modal-backdrop" id="kidSearchModal" style="display:none;">
   <div class="modal">
     <div class="modal-head">
-      <h3 style="margin:0;">Поиск ребёнка <span class="badge-admin">🔐 админ</span></h3>
-      <button type="button" class="btn btn-sm" onclick="document.getElementById('kidSearchModal').style.display='none'">Закрыть</button>
+      <h3 style="margin:0;">РџРѕРёСЃРє СЂРµР±С‘РЅРєР° <span class="badge-admin">рџ”ђ Р°РґРјРёРЅ</span></h3>
+      <button type="button" class="btn btn-sm" onclick="document.getElementById('kidSearchModal').style.display='none'">Р—Р°РєСЂС‹С‚СЊ</button>
     </div>
     <div class="modal-filters" style="padding:10px;">
-      <input type="text" id="kidSearchInput" placeholder="ФИО ребёнка…" style="width:100%;" autocomplete="off">
+      <input type="text" id="kidSearchInput" placeholder="Р¤РРћ СЂРµР±С‘РЅРєР°вЂ¦" style="width:100%;" autocomplete="off">
       <div id="kidSearchAdminHint" class="small muted" style="width:100%;margin-top:6px;"></div>
     </div>
-    <div class="modal-body" id="kidSearchResults"><div class="empty">Введите ФИО для поиска</div></div>
+    <div class="modal-body" id="kidSearchResults"><div class="empty">Р’РІРµРґРёС‚Рµ Р¤РРћ РґР»СЏ РїРѕРёСЃРєР°</div></div>
   </div>
 </div>
 
-<!-- ============================ ПОПРОСИТЬ РАЗРАБОТЧИКА ============================ -->
+<!-- ============================ РџРћРџР РћРЎРРўР¬ Р РђР—Р РђР‘РћРўР§РРљРђ ============================ -->
 <div class="modal-backdrop" id="feedbackModal" style="display:none;">
   <div class="modal">
     <div class="modal-head">
-      <h3 style="margin:0;">Попросить разработчика</h3>
-      <button type="button" class="btn btn-sm" onclick="closeFeedback()">Закрыть</button>
+      <h3 style="margin:0;">РџРѕРїСЂРѕСЃРёС‚СЊ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєР°</h3>
+      <button type="button" class="btn btn-sm" onclick="closeFeedback()">Р—Р°РєСЂС‹С‚СЊ</button>
     </div>
     <div style="padding:14px 16px 0;">
-      <div class="small muted" style="margin-bottom:8px;">Опишите проблему, ошибку или предложение. Сообщение будет отправлено разработчику как обращение.</div>
-      <textarea id="feedbackText" rows="6" placeholder="Напишите ваше сообщение…" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
+      <div class="small muted" style="margin-bottom:8px;">РћРїРёС€РёС‚Рµ РїСЂРѕР±Р»РµРјСѓ, РѕС€РёР±РєСѓ РёР»Рё РїСЂРµРґР»РѕР¶РµРЅРёРµ. РЎРѕРѕР±С‰РµРЅРёРµ Р±СѓРґРµС‚ РѕС‚РїСЂР°РІР»РµРЅРѕ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєСѓ РєР°Рє РѕР±СЂР°С‰РµРЅРёРµ.</div>
+      <textarea id="feedbackText" rows="6" placeholder="РќР°РїРёС€РёС‚Рµ РІР°С€Рµ СЃРѕРѕР±С‰РµРЅРёРµвЂ¦" style="width:100%;box-sizing:border-box;resize:vertical;font-family:inherit;"></textarea>
     </div>
     <div class="modal-head" style="border-top:1px solid var(--border);justify-content:flex-end;gap:8px;">
-      <button type="button" class="btn btn-sm" onclick="saveDraft()">Сохранить черновик</button>
-      <button type="button" class="btn btn-sm btn-danger" onclick="sendFeedback()">Отправить</button>
+      <button type="button" class="btn btn-sm" onclick="saveDraft()">РЎРѕС…СЂР°РЅРёС‚СЊ С‡РµСЂРЅРѕРІРёРє</button>
+      <button type="button" class="btn btn-sm btn-danger" onclick="sendFeedback()">РћС‚РїСЂР°РІРёС‚СЊ</button>
     </div>
   </div>
 </div>
@@ -293,7 +293,7 @@
   function openKidSearch() {
     KS_SOURCE = 'nav';
     document.getElementById('kidSearchModal').style.display = 'flex';
-    document.getElementById('kidSearchResults').innerHTML = '<div class="empty">Введите ФИО для поиска</div>';
+    document.getElementById('kidSearchResults').innerHTML = '<div class="empty">Р’РІРµРґРёС‚Рµ Р¤РРћ РґР»СЏ РїРѕРёСЃРєР°</div>';
     renderKidAdminHint();
   }
   function renderKidAdminHint() {
@@ -301,10 +301,10 @@
     if (!el) return;
     var admin = (typeof FORCED_ADMIN !== 'undefined') ? FORCED_ADMIN.email : '';
     if (admin) {
-      el.innerHTML = 'Админ: <b>' + esc2(admin) + '</b>';
+      el.innerHTML = 'РђРґРјРёРЅ: <b>' + esc2(admin) + '</b>';
     } else {
-      el.innerHTML = 'Поиск требует прав администратора. ' +
-        '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">🔐 Войти как администратор</button>';
+      el.innerHTML = 'РџРѕРёСЃРє С‚СЂРµР±СѓРµС‚ РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°. ' +
+        '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">рџ”ђ Р’РѕР№С‚Рё РєР°Рє Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ</button>';
     }
   }
   function openKidSearchForGroup(groupId) {
@@ -316,17 +316,17 @@
   document.getElementById('kidSearchInput').addEventListener('input', function () {
     var q = this.value.trim();
     var box = document.getElementById('kidSearchResults');
-    if (q.length < 3) { box.innerHTML = '<div class="empty">Введите минимум 3 символа</div>'; return; }
+    if (q.length < 3) { box.innerHTML = '<div class="empty">Р’РІРµРґРёС‚Рµ РјРёРЅРёРјСѓРј 3 СЃРёРјРІРѕР»Р°</div>'; return; }
     fetch('/search_kid?q=' + encodeURIComponent(q)).then(function (r) { return r.json(); }).then(function (data) {
-      if (!data || !data.length) { box.innerHTML = '<div class="empty">Никого не найдено</div>'; return; }
+      if (!data || !data.length) { box.innerHTML = '<div class="empty">РќРёРєРѕРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ</div>'; return; }
       var html = '<div class="contacts-list">';
       data.forEach(function (k) {
         html += '<div class="contact-item kid-result">' +
           '<div class="rep"><strong>' + esc2(k.fio || '') + '</strong></div>' +
-          '<div class="rep-contacts">' + esc2(k.birthday || '') + ' · ' + esc2(k.approve_org_caption || '') + '</div>' +
+          '<div class="rep-contacts">' + esc2(k.birthday || '') + ' В· ' + esc2(k.approve_org_caption || '') + '</div>' +
           '<div class="mt-sm">' + certInfo(k) + '</div>' +
           '<div style="margin-top:6px;">' + (KS_SOURCE === 'preview' ?
-            '<button class="btn btn-sm btn-primary" data-use="1" data-kid="' + esc2(k.id) + '" data-fio="' + esc2(k.fio) + '" data-su="' + esc2(k.site_user_id || '') + '">Выбрать → заявка</button>'
+            '<button class="btn btn-sm btn-primary" data-use="1" data-kid="' + esc2(k.id) + '" data-fio="' + esc2(k.fio) + '" data-su="' + esc2(k.site_user_id || '') + '">Р’С‹Р±СЂР°С‚СЊ в†’ Р·Р°СЏРІРєР°</button>'
             : '<span class="small muted">id ' + esc2(k.id) + '</span>') +
           '</div></div>';
       });
@@ -339,24 +339,24 @@
           }
         });
       });
-    }).catch(function () { box.innerHTML = '<div class="empty">Ошибка сети</div>'; });
+    }).catch(function () { box.innerHTML = '<div class="empty">РћС€РёР±РєР° СЃРµС‚Рё</div>'; });
   });
   function esc2(s) {
     return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
   function certInfo(k) {
     var c = (k && k.certificate_number != null) ? String(k.certificate_number).trim() : '';
-    if (c) return '<span class="tag tag-ok">Сертификат: ' + esc2(c) + '</span>';
-    return '<span class="tag tag-muted">Сертификат: отсутствует</span>';
+    if (c) return '<span class="tag tag-ok">РЎРµСЂС‚РёС„РёРєР°С‚: ' + esc2(c) + '</span>';
+    return '<span class="tag tag-muted">РЎРµСЂС‚РёС„РёРєР°С‚: РѕС‚СЃСѓС‚СЃС‚РІСѓРµС‚</span>';
   }
 </script>
 <script>
-  // ——— Попросить разработчика ———
+  // вЂ”вЂ”вЂ” РџРѕРїСЂРѕСЃРёС‚СЊ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєР° вЂ”вЂ”вЂ”
   var FEEDBACK_DRAFT_KEY = 'feedback_draft';
   function openFeedback() {
     var modal = document.getElementById('feedbackModal');
     var ta = document.getElementById('feedbackText');
-    // восстановить черновик
+    // РІРѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ С‡РµСЂРЅРѕРІРёРє
     try {
       var draft = localStorage.getItem(FEEDBACK_DRAFT_KEY);
       if (draft) ta.value = draft;
@@ -370,80 +370,80 @@
   function saveDraft() {
     var text = document.getElementById('feedbackText').value.trim();
     try { localStorage.setItem(FEEDBACK_DRAFT_KEY, text || ''); } catch (e) {}
-    alert('Черновик сохранён');
+    alert('Р§РµСЂРЅРѕРІРёРє СЃРѕС…СЂР°РЅС‘РЅ');
   }
   function sendFeedback() {
     var text = document.getElementById('feedbackText').value.trim();
-    if (!text) { alert('Напишите сообщение'); return; }
-    if (!confirm('Отправить сообщение разработчику?')) return;
+    if (!text) { alert('РќР°РїРёС€РёС‚Рµ СЃРѕРѕР±С‰РµРЅРёРµ'); return; }
+    if (!confirm('РћС‚РїСЂР°РІРёС‚СЊ СЃРѕРѕР±С‰РµРЅРёРµ СЂР°Р·СЂР°Р±РѕС‚С‡РёРєСѓ?')) return;
     var btn = document.querySelector('#feedbackModal .btn-danger');
-    btn.disabled = true; btn.textContent = 'Отправка…';
+    btn.disabled = true; btn.textContent = 'РћС‚РїСЂР°РІРєР°вЂ¦';
     fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text: text })
     }).then(function (r) { return r.json(); }).then(function (res) {
-      btn.disabled = false; btn.textContent = 'Отправить';
+      btn.disabled = false; btn.textContent = 'РћС‚РїСЂР°РІРёС‚СЊ';
       if (res.ok) {
         try { localStorage.removeItem(FEEDBACK_DRAFT_KEY); } catch (e) {}
         document.getElementById('feedbackText').value = '';
         closeFeedback();
-        alert('Отправлено! Спасибо за обращение.');
+        alert('РћС‚РїСЂР°РІР»РµРЅРѕ! РЎРїР°СЃРёР±Рѕ Р·Р° РѕР±СЂР°С‰РµРЅРёРµ.');
       } else {
-        alert(res.error || 'Не удалось отправить');
+        alert(res.error || 'РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РїСЂР°РІРёС‚СЊ');
       }
     }).catch(function () {
-      btn.disabled = false; btn.textContent = 'Отправить';
-      alert('Ошибка сети');
+      btn.disabled = false; btn.textContent = 'РћС‚РїСЂР°РІРёС‚СЊ';
+      alert('РћС€РёР±РєР° СЃРµС‚Рё');
     });
   }
 </script>
-<!-- ============================ ПРИНУДИТЕЛЬНАЯ ЗАЯВКА ДЕТЕЙ В ГРУППУ (АДМИН) ============================ -->
+<!-- ============================ РџР РРќРЈР”РРўР•Р›Р¬РќРђРЇ Р—РђРЇР’РљРђ Р”Р•РўР•Р™ Р’ Р“Р РЈРџРџРЈ (РђР”РњРРќ) ============================ -->
 <div class="modal-backdrop" id="forcedModal" style="display:none;">
   <div class="modal modal-wide">
     <div class="modal-head">
-      <h3 style="margin:0;">Принудительная заявка детей в группу <span class="badge-admin">🔐 админ</span></h3>
-      <button type="button" class="btn btn-sm" onclick="closeForced()">Закрыть</button>
+      <h3 style="margin:0;">РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅР°СЏ Р·Р°СЏРІРєР° РґРµС‚РµР№ РІ РіСЂСѓРїРїСѓ <span class="badge-admin">рџ”ђ Р°РґРјРёРЅ</span></h3>
+      <button type="button" class="btn btn-sm" onclick="closeForced()">Р—Р°РєСЂС‹С‚СЊ</button>
     </div>
     <div class="modal-filters" style="border-bottom:none;">
-      <span class="small muted">Действие требует прав администратора навигатора. Войдите отдельно — обычный интерфейс продолжит работать под вашим аккаунтом.</span>
+      <span class="small muted">Р”РµР№СЃС‚РІРёРµ С‚СЂРµР±СѓРµС‚ РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РЅР°РІРёРіР°С‚РѕСЂР°. Р’РѕР№РґРёС‚Рµ РѕС‚РґРµР»СЊРЅРѕ вЂ” РѕР±С‹С‡РЅС‹Р№ РёРЅС‚РµСЂС„РµР№СЃ РїСЂРѕРґРѕР»Р¶РёС‚ СЂР°Р±РѕС‚Р°С‚СЊ РїРѕРґ РІР°С€РёРј Р°РєРєР°СѓРЅС‚РѕРј.</span>
     </div>
     <div class="modal-body">
       <div class="panel mb" id="forcedAdminBar"></div>
 
       <div class="row" style="gap:8px;">
         <div class="field" style="margin:0;">
-          <label>Список детей (по одному на строку)</label>
-          <textarea id="forcedText" rows="7" style="width:100%;font-family:monospace;font-size:13px;" placeholder="Иванов Иван Иванович&#9;Робототехника&#10;Петрова Анна Сергеевна&#9;Программирование"></textarea>
+          <label>РЎРїРёСЃРѕРє РґРµС‚РµР№ (РїРѕ РѕРґРЅРѕРјСѓ РЅР° СЃС‚СЂРѕРєСѓ)</label>
+          <textarea id="forcedText" rows="7" style="width:100%;font-family:monospace;font-size:13px;" placeholder="РРІР°РЅРѕРІ РРІР°РЅ РРІР°РЅРѕРІРёС‡&#9;Р РѕР±РѕС‚РѕС‚РµС…РЅРёРєР°&#10;РџРµС‚СЂРѕРІР° РђРЅРЅР° РЎРµСЂРіРµРµРІРЅР°&#9;РџСЂРѕРіСЂР°РјРјРёСЂРѕРІР°РЅРёРµ"></textarea>
         </div>
         <div class="field" style="margin:0;">
-          <label>Или файл .txt</label>
+          <label>РР»Рё С„Р°Р№Р» .txt</label>
           <input type="file" id="forcedFile" accept=".txt" style="margin-bottom:8px;">
           <div class="row" style="gap:8px;">
-            <button type="button" class="btn btn-sm" onclick="loadForcedFile()">Загрузить список</button>
-            <button type="button" class="btn btn-sm btn-primary" onclick="runForcedSearch()">🔍 Найти детей</button>
+            <button type="button" class="btn btn-sm" onclick="loadForcedFile()">Р—Р°РіСЂСѓР·РёС‚СЊ СЃРїРёСЃРѕРє</button>
+            <button type="button" class="btn btn-sm btn-primary" onclick="runForcedSearch()">рџ”Ќ РќР°Р№С‚Рё РґРµС‚РµР№</button>
           </div>
         </div>
       </div>
 
-      <div id="forcedLoader" style="display:none;" class="center muted mt">Поиск…</div>
+      <div id="forcedLoader" style="display:none;" class="center muted mt">РџРѕРёСЃРєвЂ¦</div>
       <div id="forcedGlobal" style="display:none;" class="mt">
-        <label class="small"><b>Группа по умолчанию</b> <span class="muted">(для строк без своей группы)</span></label>
+        <label class="small"><b>Р“СЂСѓРїРїР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ</b> <span class="muted">(РґР»СЏ СЃС‚СЂРѕРє Р±РµР· СЃРІРѕРµР№ РіСЂСѓРїРїС‹)</span></label>
         <div id="forcedGlobalChip" class="mt-sm" style="display:none;"></div>
       </div>
       <div id="forcedGroupSearch" style="display:none;" class="mt">
         <div class="group-picker">
-          <input type="text" id="forcedGroupFilter" placeholder="🔍 Поиск группы: название, программа, педагог, №…" autocomplete="off">
+          <input type="text" id="forcedGroupFilter" placeholder="рџ”Ќ РџРѕРёСЃРє РіСЂСѓРїРїС‹: РЅР°Р·РІР°РЅРёРµ, РїСЂРѕРіСЂР°РјРјР°, РїРµРґР°РіРѕРі, в„–вЂ¦" autocomplete="off">
           <div id="forcedGroupResults" class="group-results" style="display:none;"></div>
         </div>
-        <div class="small muted">Начните вводить — выберите группу из списка, и она станет группой по умолчанию. Списки групп у каждой строки тоже фильтруются по этому запросу.</div>
+        <div class="small muted">РќР°С‡РЅРёС‚Рµ РІРІРѕРґРёС‚СЊ вЂ” РІС‹Р±РµСЂРёС‚Рµ РіСЂСѓРїРїСѓ РёР· СЃРїРёСЃРєР°, Рё РѕРЅР° СЃС‚Р°РЅРµС‚ РіСЂСѓРїРїРѕР№ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ. РЎРїРёСЃРєРё РіСЂСѓРїРї Сѓ РєР°Р¶РґРѕР№ СЃС‚СЂРѕРєРё С‚РѕР¶Рµ С„РёР»СЊС‚СЂСѓСЋС‚СЃСЏ РїРѕ СЌС‚РѕРјСѓ Р·Р°РїСЂРѕСЃСѓ.</div>
       </div>
       <div id="forcedLines" class="mt"></div>
       <div id="forcedFooter" style="display:none;" class="mt">
-        <div class="small warn-note"><b>Внимание:</b> создание заявок — изменение данных навигатора. Требуется подтверждение.</div>
+        <div class="small warn-note"><b>Р’РЅРёРјР°РЅРёРµ:</b> СЃРѕР·РґР°РЅРёРµ Р·Р°СЏРІРѕРє вЂ” РёР·РјРµРЅРµРЅРёРµ РґР°РЅРЅС‹С… РЅР°РІРёРіР°С‚РѕСЂР°. РўСЂРµР±СѓРµС‚СЃСЏ РїРѕРґС‚РІРµСЂР¶РґРµРЅРёРµ.</div>
         <div class="row" style="justify-content:flex-end;gap:8px;margin-top:8px;">
-          <button type="button" class="btn btn-sm" onclick="closeForced()">Отмена</button>
-          <button type="button" class="btn btn-sm btn-danger" onclick="runForcedCreate()">Создать заявки</button>
+          <button type="button" class="btn btn-sm" onclick="closeForced()">РћС‚РјРµРЅР°</button>
+          <button type="button" class="btn btn-sm btn-danger" onclick="runForcedCreate()">РЎРѕР·РґР°С‚СЊ Р·Р°СЏРІРєРё</button>
         </div>
       </div>
       <div id="forcedResult" class="mt" style="display:none;"></div>
@@ -451,45 +451,45 @@
   </div>
 </div>
 
-<!-- ============================ ВХОД АДМИНИСТРАТОРА (МИНИ-МОДАЛКА) ============================ -->
+<!-- ============================ Р’РҐРћР” РђР”РњРРќРРЎРўР РђРўРћР Рђ (РњРРќР-РњРћР”РђР›РљРђ) ============================ -->
 <div class="modal-backdrop" id="adminLoginModal" style="display:none;">
   <div class="modal" style="width:min(420px,100%);">
     <div class="modal-head">
-      <h3 style="margin:0;">Вход администратора <span class="badge-admin">🔐 админ</span></h3>
-      <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Закрыть</button>
+      <h3 style="margin:0;">Р’С…РѕРґ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° <span class="badge-admin">рџ”ђ Р°РґРјРёРЅ</span></h3>
+      <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Р—Р°РєСЂС‹С‚СЊ</button>
     </div>
     <div class="modal-body">
-      <div class="small muted mb">Используется только для админ-возможностей (принудительная заявка, перевод между группами). Логин/пароль администратора навигатора.</div>
+      <div class="small muted mb">РСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ С‚РѕР»СЊРєРѕ РґР»СЏ Р°РґРјРёРЅ-РІРѕР·РјРѕР¶РЅРѕСЃС‚РµР№ (РїСЂРёРЅСѓРґРёС‚РµР»СЊРЅР°СЏ Р·Р°СЏРІРєР°, РїРµСЂРµРІРѕРґ РјРµР¶РґСѓ РіСЂСѓРїРїР°РјРё). Р›РѕРіРёРЅ/РїР°СЂРѕР»СЊ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° РЅР°РІРёРіР°С‚РѕСЂР°.</div>
       <div class="field"><label>E-mail</label><input type="email" id="adminLoginEmail" style="width:100%;" autocomplete="off"></div>
-      <div class="field"><label>Пароль</label><input type="password" id="adminLoginPass" style="width:100%;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+      <div class="field"><label>РџР°СЂРѕР»СЊ</label><input type="password" id="adminLoginPass" style="width:100%;" onkeydown="if(event.key==='Enter')adminLogin()"></div>
       <div class="small warn-note" id="adminLoginMsg" style="display:none;"></div>
       <div class="row" style="justify-content:flex-end;gap:8px;margin-top:10px;">
-        <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">Отмена</button>
-        <button type="button" class="btn btn-sm btn-primary" onclick="adminLogin()">Войти</button>
+        <button type="button" class="btn btn-sm" onclick="closeAdminLogin()">РћС‚РјРµРЅР°</button>
+        <button type="button" class="btn btn-sm btn-primary" onclick="adminLogin()">Р’РѕР№С‚Рё</button>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-  // ——— Принудительная заявка детей в группу (админ) ———
+  // вЂ”вЂ”вЂ” РџСЂРёРЅСѓРґРёС‚РµР»СЊРЅР°СЏ Р·Р°СЏРІРєР° РґРµС‚РµР№ РІ РіСЂСѓРїРїСѓ (Р°РґРјРёРЅ) вЂ”вЂ”вЂ”
   var FORCED_ADMIN = { email: {{ admin_email|tojson }}, name: {{ admin_name|tojson }}, active: {{ admin_active|tojson }} };
   var FORCED = { allGroups: [], state: [], filter: '', globalGroupId: '' };
 
-  // ——— статус-бар администратора ———
+  // вЂ”вЂ”вЂ” СЃС‚Р°С‚СѓСЃ-Р±Р°СЂ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР° вЂ”вЂ”вЂ”
   function renderAdminBar() {
     var bar = document.getElementById('forcedAdminBar');
     if (!bar) return;
     var html = '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;justify-content:space-between;">';
     if (FORCED_ADMIN.active) {
-      html += '<div class="small"><b>Админ: ' + esc2(FORCED_ADMIN.email) + '</b>' +
+      html += '<div class="small"><b>РђРґРјРёРЅ: ' + esc2(FORCED_ADMIN.email) + '</b>' +
               (FORCED_ADMIN.name ? ' (' + esc2(FORCED_ADMIN.name) + ')' : '') + '</div>';
       html += '<div class="row" style="gap:6px;">' +
-              '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">Сменить</button>' +
-              '<button type="button" class="btn btn-sm" onclick="adminLogout()">Выйти</button></div>';
+              '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">РЎРјРµРЅРёС‚СЊ</button>' +
+              '<button type="button" class="btn btn-sm" onclick="adminLogout()">Р’С‹Р№С‚Рё</button></div>';
     } else {
-      html += '<div class="small muted">Администратор не вошёл — поиск детей и создание заявок требуют прав администратора.</div>';
-      html += '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">🔐 Войти как администратор</button>';
+      html += '<div class="small muted">РђРґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ РЅРµ РІРѕС€С‘Р» вЂ” РїРѕРёСЃРє РґРµС‚РµР№ Рё СЃРѕР·РґР°РЅРёРµ Р·Р°СЏРІРѕРє С‚СЂРµР±СѓСЋС‚ РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°.</div>';
+      html += '<button type="button" class="btn btn-sm" onclick="openAdminLogin()">рџ”ђ Р’РѕР№С‚Рё РєР°Рє Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂ</button>';
     }
     html += '</div>';
     bar.innerHTML = html;
@@ -500,9 +500,9 @@
     document.getElementById('adminLoginEmail').value = FORCED_ADMIN.email || '';
     document.getElementById('adminLoginPass').value = '';
   }
-  // Выполнить действие, требующее прав администратора. Реальное состояние
-  // админа берём с сервера (клиент живёт в памяти и теряется при рестарте),
-  // поэтому cookie-сессия может врать. Если админа нет — открываем вход.
+  // Р’С‹РїРѕР»РЅРёС‚СЊ РґРµР№СЃС‚РІРёРµ, С‚СЂРµР±СѓСЋС‰РµРµ РїСЂР°РІ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°. Р РµР°Р»СЊРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ
+  // Р°РґРјРёРЅР° Р±РµСЂС‘Рј СЃ СЃРµСЂРІРµСЂР° (РєР»РёРµРЅС‚ Р¶РёРІС‘С‚ РІ РїР°РјСЏС‚Рё Рё С‚РµСЂСЏРµС‚СЃСЏ РїСЂРё СЂРµСЃС‚Р°СЂС‚Рµ),
+  // РїРѕСЌС‚РѕРјСѓ cookie-СЃРµСЃСЃРёСЏ РјРѕР¶РµС‚ РІСЂР°С‚СЊ. Р•СЃР»Рё Р°РґРјРёРЅР° РЅРµС‚ вЂ” РѕС‚РєСЂС‹РІР°РµРј РІС…РѕРґ.
   var ADMIN_LOGIN_CB = null;
   function refreshAdminHooks() {
     if (window.renderTransferAdmin) renderTransferAdmin();
@@ -532,14 +532,14 @@
     var email = document.getElementById('adminLoginEmail').value.trim();
     var pass = document.getElementById('adminLoginPass').value;
     var msg = document.getElementById('adminLoginMsg');
-    if (!email || !pass) { msg.textContent = 'Заполните логин и пароль'; msg.style.display = 'block'; return; }
+    if (!email || !pass) { msg.textContent = 'Р—Р°РїРѕР»РЅРёС‚Рµ Р»РѕРіРёРЅ Рё РїР°СЂРѕР»СЊ'; msg.style.display = 'block'; return; }
     msg.style.display = 'none';
     fetch('/api/admin_login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email, password: pass })
     }).then(function (r) { return r.json(); }).then(function (res) {
-      if (!res.ok) { msg.textContent = res.error || 'Ошибка входа'; msg.style.display = 'block'; return; }
+      if (!res.ok) { msg.textContent = res.error || 'РћС€РёР±РєР° РІС…РѕРґР°'; msg.style.display = 'block'; return; }
       FORCED_ADMIN.email = res.email || email;
       FORCED_ADMIN.name = res.name || '';
       FORCED_ADMIN.active = true;
@@ -550,14 +550,14 @@
       if (window.renderOdTransferAdmin) renderOdTransferAdmin();
       var cb = ADMIN_LOGIN_CB; ADMIN_LOGIN_CB = null;
       if (cb) cb();
-      // прошлый результат поиска сбрасываем — данные могли быть неполными
+      // РїСЂРѕС€Р»С‹Р№ СЂРµР·СѓР»СЊС‚Р°С‚ РїРѕРёСЃРєР° СЃР±СЂР°СЃС‹РІР°РµРј вЂ” РґР°РЅРЅС‹Рµ РјРѕРіР»Рё Р±С‹С‚СЊ РЅРµРїРѕР»РЅС‹РјРё
       document.getElementById('forcedLines').innerHTML = '';
       document.getElementById('forcedGlobal').style.display = 'none';
       document.getElementById('forcedGroupSearch').style.display = 'none';
       document.getElementById('forcedFooter').style.display = 'none';
       document.getElementById('forcedResult').style.display = 'none';
       FORCED.allGroups = []; FORCED.state = [];
-    }).catch(function () { msg.textContent = 'Ошибка сети'; msg.style.display = 'block'; });
+    }).catch(function () { msg.textContent = 'РћС€РёР±РєР° СЃРµС‚Рё'; msg.style.display = 'block'; });
   }
   function adminLogout() {
     fetch('/api/admin_logout', { method: 'POST' }).then(function (r) { return r.json(); }).then(function () {
@@ -585,7 +585,7 @@
   }
   function loadForcedFile() {
     var inp = document.getElementById('forcedFile');
-    if (!inp.files || !inp.files[0]) { alert('Выберите файл .txt'); return; }
+    if (!inp.files || !inp.files[0]) { alert('Р’С‹Р±РµСЂРёС‚Рµ С„Р°Р№Р» .txt'); return; }
     var reader = new FileReader();
     reader.onload = function (e) {
       document.getElementById('forcedText').value = e.target.result;
@@ -601,16 +601,16 @@
     if (!q) return src;
     return src.filter(function (g) { return groupHay(g).indexOf(q) >= 0; });
   }
-  // построить <option> групп (сгруппировано по программам), с учётом фильтра
+  // РїРѕСЃС‚СЂРѕРёС‚СЊ <option> РіСЂСѓРїРї (СЃРіСЂСѓРїРїРёСЂРѕРІР°РЅРѕ РїРѕ РїСЂРѕРіСЂР°РјРјР°Рј), СЃ СѓС‡С‘С‚РѕРј С„РёР»СЊС‚СЂР°
   function buildGroupOptions(groups, filter) {
     var list = filterGroups(filter, groups);
-    if (!list.length) return '<option value="">— нет групп по фильтру —</option>';
+    if (!list.length) return '<option value="">вЂ” РЅРµС‚ РіСЂСѓРїРї РїРѕ С„РёР»СЊС‚СЂСѓ вЂ”</option>';
     var byProg = {};
     list.forEach(function (g) {
-      var p = g.program_name || ('Программа #' + g.event_id);
+      var p = g.program_name || ('РџСЂРѕРіСЂР°РјРјР° #' + g.event_id);
       (byProg[p] = byProg[p] || []).push(g);
     });
-    var html = '<option value="">— группа по умолчанию (не выбрана) —</option>';
+    var html = '<option value="">вЂ” РіСЂСѓРїРїР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ (РЅРµ РІС‹Р±СЂР°РЅР°) вЂ”</option>';
     Object.keys(byProg).sort().forEach(function (p) {
       html += '<optgroup label="' + esc2(p) + '">';
       byProg[p].forEach(function (g) {
@@ -620,7 +620,7 @@
     });
     return html;
   }
-  // перестроить построчные селекторы групп с текущим фильтром
+  // РїРµСЂРµСЃС‚СЂРѕРёС‚СЊ РїРѕСЃС‚СЂРѕС‡РЅС‹Рµ СЃРµР»РµРєС‚РѕСЂС‹ РіСЂСѓРїРї СЃ С‚РµРєСѓС‰РёРј С„РёР»СЊС‚СЂРѕРј
   function refreshGroupSelects() {
     Array.prototype.forEach.call(document.querySelectorAll('.frc-group'), function (sel) {
       var i = parseInt(sel.getAttribute('data-i'), 10);
@@ -632,24 +632,24 @@
       if (cur2) sel.value = cur2;
     });
   }
-  // выпадающий список совпадений групп (клик — выбрать группой по умолчанию)
+  // РІС‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє СЃРѕРІРїР°РґРµРЅРёР№ РіСЂСѓРїРї (РєР»РёРє вЂ” РІС‹Р±СЂР°С‚СЊ РіСЂСѓРїРїРѕР№ РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ)
   function renderGroupResults() {
     var box = document.getElementById('forcedGroupResults');
     if (!box) return;
     var q = document.getElementById('forcedGroupFilter').value;
     if (!q.trim()) { box.style.display = 'none'; box.innerHTML = ''; return; }
     var list = filterGroups(q, FORCED.allGroups);
-    if (!list.length) { box.innerHTML = '<div class="group-result-item muted">Ничего не найдено</div>'; box.style.display = 'block'; return; }
+    if (!list.length) { box.innerHTML = '<div class="group-result-item muted">РќРёС‡РµРіРѕ РЅРµ РЅР°Р№РґРµРЅРѕ</div>'; box.style.display = 'block'; return; }
     var shown = list.slice(0, 80);
     var html = '';
     shown.forEach(function (g) {
       html += '<div class="group-result-item" data-gid="' + esc2(g.id) + '">' +
         '<b>' + esc2(g.name || ('#' + g.id)) + '</b>' +
-        '<span class="muted"> — ' + esc2(g.program_name || '') + '</span>' +
-        (g.teacher ? '<span class="muted"> · ' + esc2(g.teacher) + '</span>' : '') +
+        '<span class="muted"> вЂ” ' + esc2(g.program_name || '') + '</span>' +
+        (g.teacher ? '<span class="muted"> В· ' + esc2(g.teacher) + '</span>' : '') +
         ' <span class="muted">#' + esc2(g.id) + '</span></div>';
     });
-    if (list.length > shown.length) html += '<div class="group-result-item muted">…показано ' + shown.length + ' из ' + list.length + '</div>';
+    if (list.length > shown.length) html += '<div class="group-result-item muted">вЂ¦РїРѕРєР°Р·Р°РЅРѕ ' + shown.length + ' РёР· ' + list.length + '</div>';
     box.innerHTML = html;
     box.style.display = 'block';
     box.querySelectorAll('[data-gid]').forEach(function (el) {
@@ -670,14 +670,14 @@
     if (!gid) { chip.style.display = 'none'; chip.innerHTML = ''; return; }
     var g = null;
     (FORCED.allGroups || []).forEach(function (x) { if (String(x.id) === String(gid)) g = x; });
-    var label = g ? ((g.name || '') + ' — ' + (g.program_name || '') + ' (#' + g.id + ')') : ('#' + gid);
+    var label = g ? ((g.name || '') + ' вЂ” ' + (g.program_name || '') + ' (#' + g.id + ')') : ('#' + gid);
     chip.style.display = 'block';
-    chip.innerHTML = '<span class="tag tag-ok">Группа по умолчанию: ' + esc2(label) + '</span> ' +
-      '<button type="button" class="btn btn-sm" onclick="setGlobalGroup(\'\')">Сбросить</button>';
+    chip.innerHTML = '<span class="tag tag-ok">Р“СЂСѓРїРїР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ: ' + esc2(label) + '</span> ' +
+      '<button type="button" class="btn btn-sm" onclick="setGlobalGroup(\'\')">РЎР±СЂРѕСЃРёС‚СЊ</button>';
   }
   function runForcedSearch() {
     var text = document.getElementById('forcedText').value.trim();
-    if (!text) { alert('Введите список детей'); return; }
+    if (!text) { alert('Р’РІРµРґРёС‚Рµ СЃРїРёСЃРѕРє РґРµС‚РµР№'); return; }
     document.getElementById('forcedLoader').style.display = 'block';
     fetch('/forced/search', {
       method: 'POST',
@@ -685,7 +685,7 @@
       body: JSON.stringify({ text: text })
     }).then(function (r) { return r.json(); }).then(function (res) {
       document.getElementById('forcedLoader').style.display = 'none';
-      if (!res.ok) { alert(res.error || 'Ошибка поиска'); return; }
+      if (!res.ok) { alert(res.error || 'РћС€РёР±РєР° РїРѕРёСЃРєР°'); return; }
       FORCED.allGroups = res.all_groups || [];
       FORCED.state = (res.lines || []).map(function (line, i) {
         return {
@@ -707,53 +707,53 @@
       document.getElementById('forcedFooter').style.display = 'block';
     }).catch(function () {
       document.getElementById('forcedLoader').style.display = 'none';
-      alert('Ошибка сети');
+      alert('РћС€РёР±РєР° СЃРµС‚Рё');
     });
   }
   function renderForcedLines() {
     var box = document.getElementById('forcedLines');
     if (!FORCED.state.length) {
-      box.innerHTML = '<div class="empty">Ничего не распознано — проверьте формат (ФИО, по одному на строку)</div>';
+      box.innerHTML = '<div class="empty">РќРёС‡РµРіРѕ РЅРµ СЂР°СЃРїРѕР·РЅР°РЅРѕ вЂ” РїСЂРѕРІРµСЂСЊС‚Рµ С„РѕСЂРјР°С‚ (Р¤РРћ, РїРѕ РѕРґРЅРѕРјСѓ РЅР° СЃС‚СЂРѕРєСѓ)</div>';
       return;
     }
     var html = '';
     FORCED.state.forEach(function (st, i) {
       html += '<div class="panel mb">';
       html += '<div class="panel-title">' + esc2(st.fio) +
-              (st.fragment ? ' <span class="muted">→ ' + esc2(st.fragment) + '</span>' : '') +
+              (st.fragment ? ' <span class="muted">в†’ ' + esc2(st.fragment) + '</span>' : '') +
               '</div>';
       if (st.error) {
-        html += '<div class="small muted">Поиск не выполнен: ' + esc2(st.error) + '</div>';
+        html += '<div class="small muted">РџРѕРёСЃРє РЅРµ РІС‹РїРѕР»РЅРµРЅ: ' + esc2(st.error) + '</div>';
       }
       if (st.fragment) {
-        html += '<div class="small muted">Совпало групп: ' + st.groups.length + '</div>';
+        html += '<div class="small muted">РЎРѕРІРїР°Р»Рѕ РіСЂСѓРїРї: ' + st.groups.length + '</div>';
         var matches = st.groups.map(function (g) { return g.name + ' (' + g.program_name + ')'; }).slice(0, 8);
-        if (matches.length) html += '<div class="small muted">' + esc2(matches.join(', ')) + (st.groups.length > 8 ? '…' : '') + '</div>';
+        if (matches.length) html += '<div class="small muted">' + esc2(matches.join(', ')) + (st.groups.length > 8 ? 'вЂ¦' : '') + '</div>';
       }
-      html += '<div class="small muted mt"><b>Найденные дети</b>:</div>';
-      html += '<div class="small muted">Выберите ребёнка:</div>';
+      html += '<div class="small muted mt"><b>РќР°Р№РґРµРЅРЅС‹Рµ РґРµС‚Рё</b>:</div>';
+      html += '<div class="small muted">Р’С‹Р±РµСЂРёС‚Рµ СЂРµР±С‘РЅРєР°:</div>';
       html += '<div class="cand-list">';
-      html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="" data-su="" ' + ((st.kid_id === '' || !st.kid_id) ? 'checked' : '') + '> <span class="muted">— не выбирать —</span></label>';
-      // список кандидатов
+      html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="" data-su="" ' + ((st.kid_id === '' || !st.kid_id) ? 'checked' : '') + '> <span class="muted">вЂ” РЅРµ РІС‹Р±РёСЂР°С‚СЊ вЂ”</span></label>';
+      // СЃРїРёСЃРѕРє РєР°РЅРґРёРґР°С‚РѕРІ
       var empty = true;
       for (var cid in st.cands) {
         var cand = st.cands[cid];
         empty = false;
         html += '<label class="cand-item"><input type="radio" name="frc_' + i + '" value="' + esc2(cand.id) + '" data-su="' + esc2(cand.site_user_id || '') + '" ' + (st.kid_id === cand.id ? 'checked' : '') + '> ' +
-                '<b>' + esc2(cand.fio || '') + '</b> <span class="muted">' + esc2(cand.birthday || '') + ' · ' + esc2(cand.approve_org_caption || '') + '</span> ' + certInfo(cand) + '</label>';
+                '<b>' + esc2(cand.fio || '') + '</b> <span class="muted">' + esc2(cand.birthday || '') + ' В· ' + esc2(cand.approve_org_caption || '') + '</span> ' + certInfo(cand) + '</label>';
       }
-      if (empty) html += '<div class="small muted">— детей не найдено —</div>';
+      if (empty) html += '<div class="small muted">вЂ” РґРµС‚РµР№ РЅРµ РЅР°Р№РґРµРЅРѕ вЂ”</div>';
       html += '</div>';
-      // выбор группы на строку
-      html += '<div class="small muted mt">Группа для этой строки:</div>';
-      html += '<select class="frc-group" data-i="' + i + '" style="max-width:100%;"><option value="">— группа по умолчанию —</option></select>';
+      // РІС‹Р±РѕСЂ РіСЂСѓРїРїС‹ РЅР° СЃС‚СЂРѕРєСѓ
+      html += '<div class="small muted mt">Р“СЂСѓРїРїР° РґР»СЏ СЌС‚РѕР№ СЃС‚СЂРѕРєРё:</div>';
+      html += '<select class="frc-group" data-i="' + i + '" style="max-width:100%;"><option value="">вЂ” РіСЂСѓРїРїР° РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ вЂ”</option></select>';
       html += '</div>';
     });
     box.innerHTML = html;
 
-    // наполнить селекторы групп: свои (по фрагменту) + все, с учётом фильтра
+    // РЅР°РїРѕР»РЅРёС‚СЊ СЃРµР»РµРєС‚РѕСЂС‹ РіСЂСѓРїРї: СЃРІРѕРё (РїРѕ С„СЂР°РіРјРµРЅС‚Сѓ) + РІСЃРµ, СЃ СѓС‡С‘С‚РѕРј С„РёР»СЊС‚СЂР°
     refreshGroupSelects();
-    // сохранение выбора кандидата и группы
+    // СЃРѕС…СЂР°РЅРµРЅРёРµ РІС‹Р±РѕСЂР° РєР°РЅРґРёРґР°С‚Р° Рё РіСЂСѓРїРїС‹
     box.addEventListener('change', function (e) {
       var el = e.target;
       if (el.type === 'radio') {
@@ -770,13 +770,13 @@
   function runForcedCreate() {
     var orders = [];
     FORCED.state.forEach(function (st) {
-      if (!st.kid_id || !st.site_user_id) return; // ребёнок не выбран — пропуск (как -1 в помойке)
+      if (!st.kid_id || !st.site_user_id) return; // СЂРµР±С‘РЅРѕРє РЅРµ РІС‹Р±СЂР°РЅ вЂ” РїСЂРѕРїСѓСЃРє (РєР°Рє -1 РІ РїРѕРјРѕР№РєРµ)
       var gid = st.group_id || FORCED.globalGroupId;
       if (!gid) return;
       orders.push({ kid_id: st.kid_id, site_user_id: st.site_user_id, group_id: gid, fio: st.fio });
     });
-    if (!orders.length) { alert('Выберите хотя бы одного ребёнка и группу'); return; }
-    if (!confirm('Создать ' + orders.length + ' заявок? Это изменение данных навигатора.')) return;
+    if (!orders.length) { alert('Р’С‹Р±РµСЂРёС‚Рµ С…РѕС‚СЏ Р±С‹ РѕРґРЅРѕРіРѕ СЂРµР±С‘РЅРєР° Рё РіСЂСѓРїРїСѓ'); return; }
+    if (!confirm('РЎРѕР·РґР°С‚СЊ ' + orders.length + ' Р·Р°СЏРІРѕРє? Р­С‚Рѕ РёР·РјРµРЅРµРЅРёРµ РґР°РЅРЅС‹С… РЅР°РІРёРіР°С‚РѕСЂР°.')) return;
 
     var footer = document.getElementById('forcedFooter');
     footer.style.display = 'none';
@@ -787,12 +787,12 @@
       body: JSON.stringify({ orders: orders })
     }).then(function (r) { return r.json(); }).then(function (res) {
       document.getElementById('forcedLoader').style.display = 'none';
-      if (!res.ok) { alert(res.error || 'Ошибка создания'); return; }
-      var out = '<div class="panel"><div class="panel-title">Результат: создано ' + res.created + ', ошибок ' + res.failed + '</div>';
+      if (!res.ok) { alert(res.error || 'РћС€РёР±РєР° СЃРѕР·РґР°РЅРёСЏ'); return; }
+      var out = '<div class="panel"><div class="panel-title">Р РµР·СѓР»СЊС‚Р°С‚: СЃРѕР·РґР°РЅРѕ ' + res.created + ', РѕС€РёР±РѕРє ' + res.failed + '</div>';
       (res.results || []).forEach(function (r) {
-        var icon = r.ok ? '✅' : '❌';
-        var msg = r.ok ? (r.group_name || 'группа #' + r.group_id) : (r.error || 'ошибка');
-        out += '<div class="small">' + icon + ' ' + esc2(r.fio || ('#' + r.kid_id)) + ' → ' + esc2(msg) + '</div>';
+        var icon = r.ok ? 'вњ…' : 'вќЊ';
+        var msg = r.ok ? (r.group_name || 'РіСЂСѓРїРїР° #' + r.group_id) : (r.error || 'РѕС€РёР±РєР°');
+        out += '<div class="small">' + icon + ' ' + esc2(r.fio || ('#' + r.kid_id)) + ' в†’ ' + esc2(msg) + '</div>';
       });
       out += '</div>';
       document.getElementById('forcedResult').innerHTML = out;
@@ -800,11 +800,11 @@
       window.refreshOrderBadge && window.refreshOrderBadge();
     }).catch(function () {
       document.getElementById('forcedLoader').style.display = 'none';
-      alert('Ошибка сети');
+      alert('РћС€РёР±РєР° СЃРµС‚Рё');
     });
   }
 
-  // ——— поиск по группам: выпадающий список + фильтр построчных селекторов ———
+  // вЂ”вЂ”вЂ” РїРѕРёСЃРє РїРѕ РіСЂСѓРїРїР°Рј: РІС‹РїР°РґР°СЋС‰РёР№ СЃРїРёСЃРѕРє + С„РёР»СЊС‚СЂ РїРѕСЃС‚СЂРѕС‡РЅС‹С… СЃРµР»РµРєС‚РѕСЂРѕРІ вЂ”вЂ”вЂ”
   (function () {
     var inp = document.getElementById('forcedGroupFilter');
     if (!inp) return;
@@ -818,7 +818,7 @@
         renderGroupResults();
       }, 160);
     });
-    // закрыть список при клике вне
+    // Р·Р°РєСЂС‹С‚СЊ СЃРїРёСЃРѕРє РїСЂРё РєР»РёРєРµ РІРЅРµ
     document.addEventListener('mousedown', function (e) {
       var box = document.getElementById('forcedGroupResults');
       if (!box || box.style.display === 'none') return;
@@ -827,12 +827,40 @@
     });
   })();
 
-  // при открытии главной/заявок подтянуть актуальный статус администратора
+  // РїСЂРё РѕС‚РєСЂС‹С‚РёРё РіР»Р°РІРЅРѕР№/Р·Р°СЏРІРѕРє РїРѕРґС‚СЏРЅСѓС‚СЊ Р°РєС‚СѓР°Р»СЊРЅС‹Р№ СЃС‚Р°С‚СѓСЃ Р°РґРјРёРЅРёСЃС‚СЂР°С‚РѕСЂР°
   document.addEventListener('DOMContentLoaded', function () {
     renderAdminBar();
   });
 </script>
 
 {% block scripts %}{% endblock %}
+<script>
+// Idle inactivity guard (5 minutes = 300000 ms). Show translucent shield with blur on inactivity,
+// hide on any mouse/keyboard/touch activity.
+(function () {
+  const IDLE_MS = 300000; // 5 minutes
+  let timer = null;
+  const shield = document.createElement('div');
+  shield.className = 'idle-shield';
+  document.body.appendChild(shield);
+
+  function showShield() {
+    shield.classList.add('active');
+  }
+  function hideShield() {
+    shield.classList.remove('active');
+  }
+  function reset() {
+    hideShield();
+    clearTimeout(timer);
+    timer = setTimeout(showShield, IDLE_MS);
+  }
+  const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel', 'pointerdown', 'pointermove', 'visibilitychange'];
+  events.forEach(ev => {
+    document.addEventListener(ev, reset, { passive: true });
+  });
+  reset();
+})();
+</script>
 </body>
 </html>
