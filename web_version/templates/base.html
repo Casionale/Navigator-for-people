@@ -833,5 +833,21 @@
 </script>
 
 {% block scripts %}{% endblock %}
+<script>
+(function () {
+  const IDLE_MS = 300000;
+  let timer = null;
+  const shield = document.createElement('div');
+  shield.className = 'idle-shield';
+  document.body.appendChild(shield);
+  function showShield(){ shield.classList.add('active'); }
+  function hideShield(){ shield.classList.remove('active'); }
+  function reset(){ hideShield(); clearTimeout(timer); timer = setTimeout(showShield, IDLE_MS); }
+  ['mousemove','mousedown','keydown','touchstart','scroll','wheel','pointerdown','pointermove','visibilitychange'].forEach(ev=>{
+    document.addEventListener(ev, reset, {passive:true});
+  });
+  reset();
+})();
+</script>
 </body>
 </html>
