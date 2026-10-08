@@ -1,4 +1,4 @@
-:root {
+﻿:root {
   --bg: #f4f5f7;
   --panel: #ffffff;
   --panel2: #eef0f3;
@@ -585,10 +585,9 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   pointer-events: none;
   opacity: 0;
   transition: opacity 1200ms ease, backdrop-filter 1200ms ease, -webkit-backdrop-filter 1200ms ease;
-  backdrop-filter: blur(8px) saturate(70%) contrast(90%);
-  -webkit-backdrop-filter: blur(8px) saturate(70%) contrast(90%);
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.26) 100%);
-  mix-blend-mode: multiply;
+  backdrop-filter: blur(16px) saturate(90%) contrast(95%);
+  -webkit-backdrop-filter: blur(16px) saturate(90%) contrast(95%);
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.60) 0%, rgba(0,0,0,0.85) 100%);
   transform: translateZ(0);
 }
 .idle-shield.active {
@@ -596,6 +595,5 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   pointer-events: none;
 }
 [data-theme="dark"] .idle-shield {
-  background: radial-gradient(ellipse at center, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.6) 100%);
-  mix-blend-mode: normal;
+  background: radial-gradient(ellipse at center, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.92) 100%);
 }
