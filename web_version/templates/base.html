@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
@@ -12,36 +12,47 @@
   window.addEventListener('error', function (e) {
     var b = document.getElementById('jsErrorBar');
     if (!b) return;
-    b.textContent = 'JS-ошибка: ' + (e.message || (e.error && e.error.message) || e.type) +
-      ' @ ' + (e.filename || '') + ':' + (e.lineno || '');
+    var msg = e.message || (e.error && e.error.message) || e.type || '';
+    var file = e.filename || '';
+    // Игнорируем шум расширений браузера и кросс-доменные «Script error.»
+    if (!file) return;
+    if (/^(moz|chrome|safari|edge|opera)-extension:/i.test(file)) return;
+    if (!msg || msg === 'Script error.') return;
+    try {
+      if (new URL(file, location.href).origin !== location.origin) return;
+    } catch (err) { return; }
+    b.textContent = 'JS-ошибка: ' + msg + ' @ ' + file + ':' + (e.lineno || '');
     b.style.display = 'block';
   });
 </script>
 {% if current_user %}
-<nav class="nav">
+<nav class="nav" id="mainNav">
   <div class="nav-brand"><span class="dot"></span> Navigator API <span class="badge-beta">β</span> <span class="nav-ver">{{ app_version }}</span></div>
-  <div class="nav-links">
-    <a href="{{ url_for('index') }}" class="{{ 'active' if request.endpoint=='index' }}">Главная</a>
-    <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
-    <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">Посещаемость</a>
-    <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки<span class="nav-badge" id="navOrderBadge" style="display:none;">0</span></a>
-    <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
+  <a class="nav-home {{ 'active' if request.endpoint=='index' }}" href="{{ url_for('index') }}">Главная</a>
+  <button type="button" class="nav-burger" id="navBurger" aria-label="Открыть меню" aria-expanded="false" aria-controls="navMenu">☰</button>
+  <div class="nav-menu" id="navMenu">
+    <div class="nav-links">
+      <a href="{{ url_for('programs') }}" class="{{ 'active' if request.endpoint=='programs' or request.endpoint=='program_page' }}">Программы</a>
+      <a href="{{ url_for('attendance') }}" class="{{ 'active' if request.endpoint=='attendance' or request.endpoint=='group_page' }}">Посещаемость</a>
+      <a href="{{ url_for('orders') }}" class="{{ 'active' if request.endpoint=='orders' }}">Заявки<span class="nav-badge" id="navOrderBadge" style="display:none;">0</span></a>
+      <button type="button" class="nav-link-btn" onclick="openKidSearch()" title="Поиск ребёнка по ФИО">🔍 Поиск</button>
+    </div>
+    <div class="nav-spacer"></div>
+    <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="Сбросить серверный кэш и перезагрузить данные">↻ Обновить</button>
+    <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">Попросить разработчика</button>
+    <div class="nav-user">{{ current_user }}</div>
+    <label class="small muted" for="yearSelect">год</label>
+    <select id="yearSelect" class="btn-theme" title="Учебный год">
+      {% for y in academic_years %}
+        <option value="{{ y['id'] }}" {{ 'selected' if current_year == y['id']|string }}>{{ y['id'] }}</option>
+      {% endfor %}
+    </select>
+    <div class="theme-menu" id="themeMenu">
+      <button type="button" class="theme-btn" id="themeBtn">🎨 Тема</button>
+      <div class="theme-list" id="themeList"></div>
+    </div>
+    <a class="btn btn-sm" href="{{ url_for('logout') }}">Выход</a>
   </div>
-  <div class="nav-spacer"></div>
-  <button type="button" class="btn btn-sm" onclick="hardRefresh(this)" title="Сбросить серверный кэш и перезагрузить данные">↻ Обновить</button>
-  <button type="button" class="btn btn-sm btn-feedback" onclick="openFeedback()">Попросить разработчика</button>
-  <div class="nav-user">{{ current_user }}</div>
-  <label class="small muted" for="yearSelect">год</label>
-  <select id="yearSelect" class="btn-theme" title="Учебный год">
-    {% for y in academic_years %}
-      <option value="{{ y['id'] }}" {{ 'selected' if current_year == y['id']|string }}>{{ y['id'] }}</option>
-    {% endfor %}
-  </select>
-  <div class="theme-menu" id="themeMenu">
-    <button type="button" class="theme-btn" id="themeBtn">🎨 Тема</button>
-    <div class="theme-list" id="themeList"></div>
-  </div>
-  <a class="btn btn-sm" href="{{ url_for('logout') }}">Выход</a>
 </nav>
 {% endif %}
 
@@ -831,6 +842,49 @@
   document.addEventListener('DOMContentLoaded', function () {
     renderAdminBar();
   });
+</script>
+
+<script>
+  // Бургер в навбаре: включается ТОЛЬКО если шапка не влезает в одну строку.
+  // «Главная» и логотип всегда остаются видимыми (вне бургера).
+  (function () {
+    var nav = document.getElementById('mainNav');
+    if (!nav) return;
+    var burger = document.getElementById('navBurger');
+    var menu = document.getElementById('navMenu');
+    function measure() {
+      if (!menu) return;
+      nav.classList.remove('nav-burger-mode');
+      nav.classList.remove('nav-open');
+      nav.classList.add('nav-nowrap');
+      var need = menu.scrollWidth > menu.clientWidth + 1;
+      nav.classList.remove('nav-nowrap');
+      if (need) nav.classList.add('nav-burger-mode');
+      if (burger) burger.setAttribute('aria-expanded', 'false');
+    }
+    if (burger) {
+      burger.addEventListener('click', function () {
+        var open = nav.classList.toggle('nav-open');
+        burger.setAttribute('aria-expanded', open ? 'true' : 'false');
+      });
+    }
+    document.addEventListener('click', function (e) {
+      if (!nav.classList.contains('nav-open')) return;
+      if (nav.contains(e.target)) return;
+      nav.classList.remove('nav-open');
+      if (burger) burger.setAttribute('aria-expanded', 'false');
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      nav.classList.remove('nav-open');
+      if (burger) burger.setAttribute('aria-expanded', 'false');
+    });
+    window.addEventListener('resize', measure);
+    window.addEventListener('orientationchange', measure);
+    window.addEventListener('load', measure);
+    measure();
+    if (document.fonts && document.fonts.ready) document.fonts.ready.then(measure);
+  })();
 </script>
 
 {% block scripts %}{% endblock %}

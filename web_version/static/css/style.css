@@ -185,7 +185,7 @@ a:hover { text-decoration: underline; }
 /* ---------- РќР°РІР±Р°СЂ ---------- */
 .nav {
   position: sticky; top: 0; z-index: 40;
-  display: flex; align-items: center; gap: 10px;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 10px; row-gap: 8px;
   padding: 12px 20px;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -208,6 +208,46 @@ a:hover { text-decoration: underline; }
 .nav-badge { display:inline-block; margin-left:5px; font-size:11px; font-weight:700; color:#fff; background:var(--danger); border-radius:999px; min-width:17px; text-align:center; padding:1px 5px; line-height:1.4; vertical-align:middle; }
 .nav .btn-feedback { background: var(--danger); border-color: var(--danger); color:#fff; white-space:nowrap; }
 .nav .btn-feedback:hover { opacity:.9; }
+
+/* Навбар: «Главная» вне бургера, остальное — в меню #navMenu */
+.nav-home {
+  margin-left: 12px; padding: 7px 14px; border-radius: 999px;
+  color: var(--text); font-weight: 500; white-space: nowrap;
+}
+.nav-home:hover { background: var(--panel2); text-decoration: none; }
+.nav-home.active { background: var(--accent-soft); color: var(--accent); }
+.nav-menu { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.nav-burger {
+  display: none; align-items: center; justify-content: center;
+  margin-left: 6px; padding: 6px 12px; font-size: 20px; line-height: 1;
+  background: var(--panel2); border: 1px solid var(--border);
+  border-radius: var(--radius); color: var(--text); cursor: pointer;
+}
+.nav-burger:hover { background: var(--border); }
+
+/* Измерение: принудительно одна строка (класс ставится/снимается из JS) */
+.nav-nowrap { flex-wrap: nowrap; }
+.nav-nowrap .nav-menu { display: flex; flex-wrap: nowrap; }
+.nav-nowrap .nav-links { flex-wrap: nowrap; }
+
+/* Режим бургера: шапка в одну строку, меню — выпадающая панель */
+.nav-burger-mode .nav-burger { display: inline-flex; }
+.nav-burger-mode .nav-menu {
+  position: absolute; top: 100%; left: 0; right: 0;
+  display: none; flex-direction: column; align-items: stretch;
+  gap: 10px; padding: 12px;
+  background: var(--panel); border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow); max-height: 80vh; overflow-y: auto; z-index: 60;
+}
+.nav-burger-mode.nav-open .nav-menu { display: flex; }
+.nav-burger-mode .nav-links { flex-wrap: wrap; margin-left: 0; }
+.nav-burger-mode .nav-spacer { display: none; }
+.nav-burger-mode .nav-user { display: block; max-width: none; overflow: visible; white-space: normal; }
+.nav-burger-mode .nav-menu > .btn,
+.nav-burger-mode .nav-menu > .btn-theme,
+.nav-burger-mode .nav-menu > select,
+.nav-burger-mode .nav-menu > .theme-menu { width: 100%; }
+.nav-burger-mode .nav-menu > .btn { text-align: center; }
 .btn-theme {
   border: 1px solid var(--border); background: var(--panel2); color: var(--text);
   border-radius: 999px; padding: 7px 12px; cursor: pointer; font-size: 13px;
@@ -218,7 +258,7 @@ a:hover { text-decoration: underline; }
 .wrap { max-width: 1280px; margin: 0 auto; padding: 20px; }
 .grid { display: grid; gap: 16px; }
 .grid-main { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
-@media (max-width: 900px) { .grid-main { grid-template-columns: 1fr; } .nav-links{display:flex;overflow-x:auto} }
+@media (max-width: 900px) { .grid-main { grid-template-columns: 1fr; } }
 
 /* ---------- Р‘РµРЅС‚Рѕ-РєР°СЂС‚РѕС‡РєРё ---------- */
 .bento { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(var(--cell,240px),1fr)); }
@@ -608,4 +648,96 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
 }
 [data-theme="dark"] .idle-shield {
   background: radial-gradient(ellipse at center, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.92) 100%);
+}
+
+/* ============================================================
+   MOBILE / RESPONSIVE  (styles only, no markup changes)
+   ============================================================ */
+
+/* --- Планшеты и уже --- */
+@media (max-width: 900px) {
+  .wrap { padding: 14px; }
+  .nav-links a { white-space: nowrap; }
+  .quick { position: static; top: auto; }
+}
+
+/* --- Телефоны --- */
+@media (max-width: 760px) {
+  body { overflow-x: clip; }
+  .wrap { padding: 12px; }
+  .grid-main { gap: 12px; }
+
+  /* Навбар: компактно, ссылки — отдельной прокручиваемой строкой */
+  .nav { padding: 10px 12px; gap: 7px 8px; }
+  .nav-brand { font-size: 15px; }
+  .nav-spacer { display: none; }
+  .nav-links a { padding: 7px 12px; font-size: 13px; }
+  .nav .btn-sm { padding: 6px 10px; }
+  .nav-user {
+    font-size: 12px; max-width: 42vw;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .btn-theme, #yearSelect { padding: 6px 10px; font-size: 13px; }
+
+  /* «Облачка»: одинаковые отступы, всё на всю ширину */
+  .panel { padding: 14px; }
+  .cell { padding: 14px; }
+  .panel-title { font-size: 14px; }
+  .bento { gap: 10px; }
+  .cell .big { font-size: 20px; }
+  .dash-cols { gap: 10px; }
+
+  /* Дашборд-списки: подпись переносим на новую строку */
+  .dash-list li, .today-item { flex-wrap: wrap; row-gap: 2px; }
+  .dash-sub { flex-basis: 100%; margin-left: 0; text-align: left; }
+  .today-time { min-width: 82px; }
+
+  /* Таблицы: горизонтальный скролл ВНУТРИ блока, а не всей страницы */
+  .program-body,
+  .panel:has(> table),
+  .attendance-grid {
+    overflow-x: auto; -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  th, td { padding: 8px; }
+  th { white-space: normal; }
+
+  /* Вкладки группы — прокручиваемая строка, а не «сжатые» кнопки */
+  .tabs {
+    flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; padding-bottom: 2px;
+  }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { white-space: nowrap; padding: 8px 14px; }
+
+  /* Формы: не мельче 16px (иначе iOS зумит при фокусе) и крупнее для тапа */
+  input, select, textarea { font-size: 16px; }
+  .btn { padding: 9px 12px; }
+  .btn-sm { padding: 7px 11px; font-size: 13px; }
+
+  /* Модалки — почти на весь экран */
+  .modal-backdrop { padding: 8px; }
+  .modal { max-height: 92vh; width: 100%; }
+  .modal-head { padding: 12px 14px; flex-wrap: wrap; row-gap: 8px; }
+  .modal-body { padding: 10px 14px 16px; }
+  .modal-filters, .report-group-filter, .report-status-filter { padding-left: 12px; padding-right: 12px; }
+
+  /* Матрица посещаемости — компактнее по горизонтали */
+  .matrix-name { min-width: 140px; }
+  .acell { min-width: 30px; }
+  .matrix thead th, .matrix td.num { min-width: 38px; }
+
+  /* Быстрые действия: на телефоне — обычный блок, кнопки на всю ширину */
+  .quick .qact { padding: 11px 12px; }
+  .report-group-item { white-space: normal; }
+}
+
+/* --- Узкие телефоны --- */
+@media (max-width: 560px) {
+  .bento { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nav-user, .nav-ver { display: none; }
+  .nav .btn-feedback { padding: 6px 8px; }
+  .modal { max-height: 94vh; }
+  .func-grid { grid-template-columns: 1fr; }
+  .report-table th, .report-table td { padding: 6px 6px; }
 }
