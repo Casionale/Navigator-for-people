@@ -136,6 +136,14 @@ def safe(fn):
     return wrapped
 
 
+def _num(v):
+    """Безопасное приведение значения API к int (0 при мусоре)."""
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return 0
+
+
 def enrich_groups(client, groups):
     """Дополняет каждый объект группы счётчиками заявок и макс. учеников.
 
@@ -365,13 +373,96 @@ def index():
 
     enrich_groups(client, groups)
 
+    # ---------------------------------------------------- дашборд: метрики
+    dash = {
+        "groups": len(groups),
+        "programs": len(by_program),
+        "children": sum(_num(g.get("_enrolled")) for g in groups),
+        "initial": sum(_num(g.get("_initial")) for g in groups),
+        "approve": sum(_num(g.get("_approve")) for g in groups),
+        "capacity": sum(_num(g.get("_max")) for g in groups),
+    }
+    dash["free"] = max(dash["capacity"] - dash["children"], 0)
+
+    # группы с новыми заявками — требуют обработки
+    attention = [g for g in groups if _num(g.get("_initial")) > 0]
+    attention.sort(key=lambda g: _num(g.get("_initial")), reverse=True)
+
+    # группы без обучающихся
+    empty_groups = [g for g in groups if _num(g.get("_enrolled")) == 0]
+    empty_groups.sort(key=lambda g: (g.get("name") or ""))
+
+    # заполненность по программам
+    prog_rows = {}
+    for g in groups:
+        pid = str(g.get("event_id"))
+        prog = by_program.get(pid, {}).get("program")
+        pname = (prog.get("name") if prog else None) or g.get("program_name") or ("Программа #" + pid)
+        row = prog_rows.setdefault(pname, {"name": pname, "groups": 0, "children": 0, "capacity": 0})
+        row["groups"] += 1
+        row["children"] += _num(g.get("_enrolled"))
+        row["capacity"] += _num(g.get("_max"))
+    prog_rows = sorted(prog_rows.values(), key=lambda r: r["children"], reverse=True)
+
     return render_template(
         "index.html",
         groups=groups,
         programs=programs,
         by_program=by_program,
         selected_group=request.args.get("group"),
+        dash=dash,
+        attention=attention,
+        empty_groups=empty_groups,
+        prog_rows=prog_rows,
     )
+
+
+@app.route("/api/dashboard_today")
+@login_required
+@safe
+def api_dashboard_today():
+    """Занятия на сегодня по всем группам (ленивая догрузка дашборда).
+
+    Для каждой группы берём даты текущего месяца и оставляем только сегодня.
+    Отменённые дни (активное исключение type=cancel) пропускаем.
+    """
+    client = get_client()
+    groups = client.get_groups()
+    programs = client.get_programs()
+    pnames = {str(p.get("id")): p.get("name") for p in programs}
+    today = time_now("%Y-%m-%d")
+    month = today[:7]
+    items = []
+    for g in groups:
+        gid = g.get("id")
+        try:
+            dates = client.get_dates(gid, month)
+        except Exception:
+            continue
+        for d in dates or []:
+            if (d.get("date") or "")[:10] != today:
+                continue
+            exclusions = d.get("exclusions") or []
+            if any(isinstance(e, dict) and e.get("type") == "cancel" and e.get("is_active")
+                   for e in exclusions):
+                continue
+            times = []
+            for t in d.get("times") or []:
+                st = t.get("start") or ""
+                en = t.get("end") or ""
+                times.append({
+                    "start": st[11:16] if len(st) >= 16 else st,
+                    "end": en[11:16] if len(en) >= 16 else en,
+                })
+            items.append({
+                "group_id": gid,
+                "group_name": g.get("name"),
+                "program": pnames.get(str(g.get("event_id"))) or g.get("program_name"),
+                "teacher": g.get("teacher"),
+                "times": times,
+            })
+    items.sort(key=lambda it: (it["times"][0]["start"] if it["times"] else "99:99"))
+    return jsonify({"ok": True, "date": today, "items": items})
 
 
 # ------------------------------------------------------------------ посещаемость (выбор группы)

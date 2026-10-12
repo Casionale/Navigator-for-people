@@ -3,22 +3,88 @@
 {% block content %}
 <div class="grid-main">
   <div>
-    <h1 style="margin-top:0;">Группы по программам</h1>
+    <h1 style="margin-top:0;">Дашборд</h1>
 
-    <div class="bento" style="--cell:180px;margin-bottom:18px;">
-      <div class="cell">
-        <div class="big">{{ groups|length }}</div>
-        <p>групп</p>
+    <div class="bento" style="--cell:150px;margin-bottom:18px;">
+      <div class="cell"><div class="big">{{ dash.groups }}</div><p>групп</p></div>
+      <div class="cell"><div class="big">{{ dash.programs }}</div><p>программ</p></div>
+      <div class="cell"><div class="big">{{ dash.children }}</div><p>детей обучается</p></div>
+      <div class="cell"><div class="big">{{ dash.initial }}</div><p>новых заявок</p></div>
+      <div class="cell"><div class="big">{{ dash.free }}</div><p>свободных мест</p></div>
+    </div>
+
+    <div class="dash-cols">
+      <div class="panel mb">
+        <div class="panel-title">📨 Заявки требуют обработки <span class="badge">{{ attention|length }}</span></div>
+        {% if attention %}
+          <ul class="dash-list">
+            {% for g in attention[:15] %}
+            <li>
+              <a href="{{ url_for('group_page', group_id=g['id'], tab='orders') }}">{{ g['name'] }}</a>
+              <span class="dash-sub">{{ g.get('program_name') or ('Программа #' ~ g.get('event_id')) }}</span>
+              <span class="tag tag-warn">+{{ g.get('_initial') }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if attention|length > 15 %}
+            <div class="small muted mt">и ещё {{ attention|length - 15 }}…</div>
+          {% endif %}
+        {% else %}
+          <div class="empty">Нет новых заявок 🎉</div>
+        {% endif %}
       </div>
-      <div class="cell">
-        <div class="big">{{ by_program|length }}</div>
-        <p>программ</p>
-      </div>
-      <div class="cell">
-        <div class="big">{{ programs|length }}</div>
-        <p>всего программ</p>
+
+      <div class="panel mb">
+        <div class="panel-title">⚠ Группы без обучающихся <span class="badge">{{ empty_groups|length }}</span></div>
+        {% if empty_groups %}
+          <ul class="dash-list">
+            {% for g in empty_groups[:15] %}
+            <li>
+              <a href="{{ url_for('group_page', group_id=g['id']) }}">{{ g['name'] }}</a>
+              <span class="dash-sub">{{ g.get('program_name') or ('Программа #' ~ g.get('event_id')) }}</span>
+            </li>
+            {% endfor %}
+          </ul>
+          {% if empty_groups|length > 15 %}
+            <div class="small muted mt">и ещё {{ empty_groups|length - 15 }}…</div>
+          {% endif %}
+        {% else %}
+          <div class="empty">Во всех группах есть обучающиеся</div>
+        {% endif %}
       </div>
     </div>
+
+    <div class="panel mb">
+      <div class="panel-title">🗓 Занятия сегодня
+        <span class="small muted" id="todayDate"></span>
+        <button type="button" class="panel-refresh" id="todayRefresh" onclick="loadToday()" title="Обновить">↻</button>
+      </div>
+      <div id="todayBody"><div class="empty">Загрузка…</div></div>
+    </div>
+
+    <div class="panel mb">
+      <div class="panel-title">🧩 Заполненность по программам</div>
+      <table class="report-table">
+        <thead>
+          <tr><th>Программа</th><th class="num">Групп</th><th class="num">Детей</th><th class="num">Мест</th><th class="num">Свободно</th></tr>
+        </thead>
+        <tbody>
+          {% for r in prog_rows %}
+          <tr>
+            <td>{{ r.name }}</td>
+            <td class="num">{{ r.groups }}</td>
+            <td class="num">{{ r.children }}</td>
+            <td class="num">{{ r.capacity if r.capacity else '—' }}</td>
+            <td class="num">{{ (r.capacity - r.children) if r.capacity else '—' }}</td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="empty">Нет данных</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    <h1>Группы по программам</h1>
 
     {% for pid, item in by_program.items() %}
       <div class="panel program-group mb">
@@ -204,6 +270,38 @@
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  }
+
+  // ---------------- Дашборд: занятия сегодня ----------------
+  function loadToday() {
+    var body = document.getElementById('todayBody');
+    var btn = document.getElementById('todayRefresh');
+    if (!body) return;
+    body.innerHTML = '<div class="empty">Загрузка…</div>';
+    if (btn) { btn.classList.add('spin'); btn.disabled = true; }
+    fetch('/api/dashboard_today').then(function (r) { return r.json(); }).then(function (res) {
+      if (btn) { btn.classList.remove('spin'); btn.disabled = false; }
+      if (!res.ok) { body.innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>'; return; }
+      document.getElementById('todayDate').textContent = res.date || '';
+      var items = res.items || [];
+      if (!items.length) { body.innerHTML = '<div class="empty">Сегодня занятий нет</div>'; return; }
+      var html = '<div class="today-list">';
+      items.forEach(function (it) {
+        var t = (it.times || []).map(function (x) {
+          return esc(x.start || '') + (x.end ? ('–' + esc(x.end)) : '');
+        }).join(', ') || '—';
+        html += '<div class="today-item">' +
+          '<span class="today-time">' + t + '</span>' +
+          '<a href="/group/' + it.group_id + '?tab=attendance">' + esc(it.group_name || ('Группа #' + it.group_id)) + '</a>' +
+          '<span class="dash-sub">' + esc(it.program || '') + (it.teacher ? (' · ' + esc(it.teacher)) : '') + '</span>' +
+          '</div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    }).catch(function () {
+      if (btn) { btn.classList.remove('spin'); btn.disabled = false; }
+      body.innerHTML = '<div class="empty">Ошибка сети</div>';
+    });
   }
   var CONTACT_COOKIE = 'contactStateFilter';
   var DEFAULT_FILTER = ['approve', 'study']; // по умолчанию: одобренные и принятые
@@ -569,5 +667,7 @@
     });
     sortTable(table, 'id', 'asc');   // по умолчанию — ID по возрастанию
   });
+
+  loadToday();
 </script>
 {% endblock %}
