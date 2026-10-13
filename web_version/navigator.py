@@ -237,12 +237,14 @@ class NavigatorClient:
 
         return self._cached(f"group:{group_id}", 300, build)
 
-    def get_group_schedule(self, group_id):
+    def get_group_schedule(self, group_id, year=None):
+        year = str(year or self.year)
+
         def build():
             filters = json.dumps(
                 [
                     {"property": "group_id", "value": str(group_id)},
-                    {"property": "academic_year_id", "value": str(self.year)},
+                    {"property": "academic_year_id", "value": year},
                 ],
                 ensure_ascii=True,
             )
@@ -256,7 +258,7 @@ class NavigatorClient:
             except NavigatorError:
                 return []
 
-        return self._cached(f"schedule:{group_id}", 300, build)
+        return self._cached(f"schedule:{group_id}:{year}", 300, build)
 
     def create_group_schedule(self, group_id, data):
         """Создание расписания группы (BY_WEEK/DATES).
@@ -408,6 +410,32 @@ class NavigatorClient:
             return self._data(b) or []
 
         return self._cached(f"dates:{group_id}:{month}:{self.year}", 300, build, cache_empty=False)
+
+    def get_dates_range(self, group_id, date_start, date_end):
+        """Даты занятий группы в произвольном диапазоне (по дню включительно).
+
+        date_start/date_end — 'YYYY-MM-DD' либо с временем. Нужен для календаря
+        «Задать дни»: получаем все дни расписания за период (учебный год).
+        """
+        ds = date_start if " " in date_start else f"{date_start} 00:00:00"
+        de = date_end if " " in date_end else f"{date_end} 23:59:59"
+
+        def build():
+            filters = json.dumps(
+                [
+                    {"property": "group_id", "value": str(group_id)},
+                    {"property": "dateStart", "value": ds},
+                    {"property": "dateEnd", "value": de},
+                ],
+                ensure_ascii=True,
+            )
+            b = self._get(
+                "/api/attendance/dates/get",
+                {"_dc": int(time.time() * 1000), "page": 1, "start": 0, "length": 2000, "extFilters": filters},
+            )
+            return self._data(b) or []
+
+        return self._cached(f"dates:{group_id}:range:{ds}:{de}", 300, build, cache_empty=False)
 
     def save_attendance(self, date, group_id, kid_id, value):
         """Проставить посещаемость ребёнка за дату.

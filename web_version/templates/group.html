@@ -7,13 +7,27 @@
   <div>
     <h1 style="margin:0;font-size:20px;">{{ group.get('name') or 'Группа' }} <span class="muted small">#{{ group.get('id') }}</span></h1>
     <div class="small muted">
-      {{ group.get('event_name') or ('Программа #' ~ group.get('event_id')) if group.get('event_id') else '' }}
+      {% if group.get('event_id') %}Программа #{{ group.get('event_id') }} · {{ program_name or '—' }}{% endif %}
       · Преподаватель: {{ group.get('teacher') or '—' }}
       · Учащихся: {{ group.get('size') or '—' }}
       · Возраст: {{ group.get('age_from') or '—' }}–{{ group.get('age_to') or '—' }}
     </div>
   </div>
   <button type="button" class="btn btn-sm" onclick="openRenameModal()">✏️ Переименовать</button>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+    <label class="small muted" for="quickGroupNav" style="margin:0;">Перейти к группе:</label>
+    <select id="quickGroupNav" style="min-width:220px;max-width:320px;"
+            onchange="if(this.value){location.href='/group/'+this.value;}">
+      <option value="">— выберите —</option>
+      {% for pname, items in groups_by_program %}
+      <optgroup label="{{ pname }}">
+        {% for g in items %}
+        <option value="{{ g.get('id') }}"{% if g.get('id')|string == group.get('id')|string %} selected{% endif %}>{{ g.get('name') }} (#{{ g.get('id') }})</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+  </div>
 </div>
 
 <!-- ============================ НАСТРОЙКИ ГРУППЫ ============================ -->
@@ -323,6 +337,7 @@
   {% if schedule_copy_prev_available %}
     <button type="button" class="btn btn-sm" style="margin-right:6px;" onclick="openCopyPrevConfirm()">📋 Копировать из прошлого года</button>
   {% endif %}
+  <button type="button" class="btn btn-sm btn-primary" style="margin-right:6px;" onclick="openDaysModal()">🗓 Задать дни</button>
 
   {% if not schedule %}
     <div class="small warn-note mb">
@@ -535,6 +550,37 @@
         </div>
       </form>
       <div class="small warn-note mt">Запрос будет отправлен от имени вашей учётки только после подтверждения ниже.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================ МОДАЛКА: ЗАДАТЬ ДНИ (КАЛЕНДАРЬ) ============================ -->
+<div class="modal-backdrop" id="daysModal" style="display:none;">
+  <div class="modal modal-days">
+    <div class="modal-head">
+      <h3 style="margin:0;">Задать дни расписания</h3>
+      <button type="button" class="btn btn-sm" onclick="closeDaysModal()">Закрыть</button>
+    </div>
+    <div class="modal-body">
+      <div class="small muted mb" id="daysCalHint">Загрузка…</div>
+      <div class="days-cal" id="daysCal"></div>
+      <div class="days-tools mt">
+        <div class="field" style="flex:1;min-width:240px;margin:0;">
+          <label>Даты в формате ДД:ММ:ГГГГ (через запятую, пробел или с новой строки) — сразу добавятся как дни занятий</label>
+          <textarea id="daysText" rows="3" style="width:100%;" placeholder="01:09:2026, 03:09:2026"></textarea>
+        </div>
+        <div class="flex" style="gap:8px;flex-wrap:wrap;align-items:flex-end;">
+          <button type="button" class="btn btn-sm" onclick="daysApplyText()">➕ Применить текст</button>
+          <button type="button" class="btn btn-sm" onclick="daysExport()">📋 Экспорт в буфер</button>
+          <button type="button" class="btn btn-sm" onclick="daysSetAll(true)">Отметить все</button>
+          <button type="button" class="btn btn-sm" onclick="daysSetAll(false)">Снять все</button>
+        </div>
+      </div>
+      <div class="small muted mt" id="daysSummary"></div>
+      <div class="flex mt" style="justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-sm" onclick="closeDaysModal()">Отмена</button>
+        <button type="button" class="btn btn-primary" id="daysSaveBtn" onclick="daysSave()">Сохранить</button>
+      </div>
     </div>
   </div>
 </div>
@@ -991,6 +1037,151 @@
       }
       refreshAttendance();
     }).catch(function () { alert('Ошибка сети'); });
+  }
+  // ==================== КАЛЕНДАРЬ «ЗАДАТЬ ДНИ» ====================
+  var DAYS_STATE = { range: null, defaults: null, sel: {} };
+  var DAYS_MONTHS = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+  function daysPad2(n) { return (n < 10 ? '0' : '') + n; }
+  function daysIso(y, m, d) { return y + '-' + daysPad2(m) + '-' + daysPad2(d); }
+  function daysFetchJson(url, opts) {
+    return fetch(url, opts).then(function (r) {
+      if (r.redirected || /\/login(\?|$)/.test(r.url)) {
+        return { ok: false, error: 'Сессия истекла — обновите страницу (F5) и войдите заново.' };
+      }
+      return r.text().then(function (t) {
+        try { return JSON.parse(t); }
+        catch (e) { return { ok: false, error: 'Сервер вернул неожиданный ответ (HTTP ' + r.status + ').' }; }
+      });
+    });
+  }
+  function closeDaysModal() { document.getElementById('daysModal').style.display = 'none'; }
+  function openDaysModal() {
+    document.getElementById('daysModal').style.display = 'flex';
+    document.getElementById('daysCal').innerHTML = '';
+    document.getElementById('daysCalHint').textContent = 'Загрузка…';
+    document.getElementById('daysText').value = '';
+    document.getElementById('daysSummary').textContent = '';
+    DAYS_STATE = { range: null, defaults: null, sel: {} };
+    daysFetchJson('/group/' + GROUP_ID + '/schedule/days').then(function (res) {
+      if (!res.ok) { document.getElementById('daysCalHint').textContent = res.error || 'Ошибка загрузки'; return; }
+      DAYS_STATE.range = res.range;
+      DAYS_STATE.defaults = res.defaults;
+      var sel = {};
+      (res.days || []).forEach(function (d) { sel[d] = true; });
+      DAYS_STATE.sel = sel;
+      renderDaysCalendar();
+      updateDaysSummary();
+    }).catch(function () { document.getElementById('daysCalHint').textContent = 'Ошибка сети — проверьте соединение.'; });
+  }
+  function renderDaysCalendar() {
+    var from = DAYS_STATE.range.from, to = DAYS_STATE.range.to;
+    var sy = parseInt(from.slice(0, 4), 10), sm = parseInt(from.slice(5, 7), 10);
+    var ey = parseInt(to.slice(0, 4), 10), em = parseInt(to.slice(5, 7), 10);
+    var WD = ['Пн','Вт','Ср','Чт','Пт','Сб','Вс'];
+    var html = '';
+    var y = sy, m = sm;
+    while (y < ey || (y === ey && m <= em)) {
+      html += '<div class="dc-month"><div class="dc-title">' + DAYS_MONTHS[m - 1] + ' ' + y + '</div><div class="dc-grid">';
+      WD.forEach(function (w) { html += '<div class="dc-wd">' + w + '</div>'; });
+      var first = new Date(y, m - 1, 1);
+      var offset = (first.getDay() + 6) % 7;
+      for (var i = 0; i < offset; i++) html += '<div class="dc-day empty"></div>';
+      var dim = new Date(y, m, 0).getDate();
+      for (var d = 1; d <= dim; d++) {
+        var iso = daysIso(y, m, d);
+        if (iso >= from && iso <= to) {
+          var on = !!DAYS_STATE.sel[iso];
+          html += '<button type="button" class="dc-day' + (on ? ' on' : '') + '" data-iso="' + iso + '" onclick="daysToggle(\'' + iso + '\', this)">' + d + '</button>';
+        } else {
+          html += '<button type="button" class="dc-day out" disabled>' + d + '</button>';
+        }
+      }
+      html += '</div></div>';
+      m++; if (m > 12) { m = 1; y++; }
+    }
+    document.getElementById('daysCal').innerHTML = html;
+    document.getElementById('daysCalHint').textContent = 'Зелёные дни — расписание уже есть. Клик по дню добавляет/убирает его.';
+  }
+  function daysToggle(iso, btn) {
+    if (DAYS_STATE.sel[iso]) { delete DAYS_STATE.sel[iso]; btn.classList.remove('on'); }
+    else { DAYS_STATE.sel[iso] = true; btn.classList.add('on'); }
+    updateDaysSummary();
+  }
+  function daysSetAll(on) {
+    if (on) {
+      var from = DAYS_STATE.range.from, to = DAYS_STATE.range.to, sel = DAYS_STATE.sel;
+      document.querySelectorAll('#daysCal .dc-day[data-iso]').forEach(function (b) {
+        var iso = b.getAttribute('data-iso');
+        if (iso >= from && iso <= to) { sel[iso] = true; b.classList.add('on'); }
+      });
+    } else {
+      DAYS_STATE.sel = {};
+      document.querySelectorAll('#daysCal .dc-day.on').forEach(function (b) { b.classList.remove('on'); });
+    }
+    updateDaysSummary();
+  }
+  function daysApplyText() {
+    var txt = document.getElementById('daysText').value || '';
+    var re = /(\d{1,2}):(\d{1,2}):(\d{4})/g, m, added = 0, skipped = 0;
+    var rng = DAYS_STATE.range || {};
+    while ((m = re.exec(txt))) {
+      var iso = m[3] + '-' + daysPad2(parseInt(m[2], 10)) + '-' + daysPad2(parseInt(m[1], 10));
+      if (rng.from && rng.to && iso >= rng.from && iso <= rng.to) { DAYS_STATE.sel[iso] = true; added++; }
+      else { skipped++; }
+    }
+    document.querySelectorAll('#daysCal .dc-day[data-iso]').forEach(function (b) {
+      if (DAYS_STATE.sel[b.getAttribute('data-iso')]) b.classList.add('on'); else b.classList.remove('on');
+    });
+    updateDaysSummary();
+    if (added || skipped) alert('Добавлено: ' + added + (skipped ? '\nВне периода: ' + skipped : ''));
+  }
+  function daysExport() {
+    var isos = Object.keys(DAYS_STATE.sel).sort();
+    var str = isos.map(function (iso) { var p = iso.split('-'); return p[2] + ':' + p[1] + ':' + p[0]; }).join(', ');
+    document.getElementById('daysText').value = str;
+    copyText(str);
+    alert('Скопировано в буфер: ' + isos.length + ' дн.');
+  }
+  function updateDaysSummary() {
+    var n = Object.keys(DAYS_STATE.sel).length;
+    var d = DAYS_STATE.defaults || {}, g = d.generic || {};
+    var extra = d.has_schedule
+      ? ('Шаблон занятия: ' + (g.time_start || '—') + ', ' + (g.duration || '—') + ' × ' + (g.duration_length || '—') + ' мин')
+      : 'В группе нет расписания (КТП) — будет использовано время по умолчанию 14:00.';
+    document.getElementById('daysSummary').textContent = 'Выбрано дней: ' + n + '. ' + extra;
+  }
+  function copyText(text) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(text); return; }
+    } catch (e) {}
+    var ta = document.createElement('textarea');
+    ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  function daysSave() {
+    var isos = Object.keys(DAYS_STATE.sel).sort();
+    var btn = document.getElementById('daysSaveBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Сохранение…'; }
+    daysFetchJson('/group/' + GROUP_ID + '/schedule/days', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data: { days: isos } })
+    }).then(function (res) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
+      if (res.ok) {
+        alert('Сохранено. Добавлено: ' + (res.added || 0) + ', убрано: ' + (res.removed || 0) + '.');
+        closeDaysModal();
+        window.location.reload();
+      } else {
+        var msg = (res.errors && res.errors.length) ? res.errors.join('\n') : (res.error || 'неизвестная ошибка');
+        alert('Ошибка сохранения:\n' + msg);
+      }
+    }).catch(function () {
+      if (btn) { btn.disabled = false; btn.textContent = 'Сохранить'; }
+      alert('Ошибка сети — проверьте соединение.');
+    });
   }
   var schedApply = document.getElementById('schedApplyGroup');
   if (schedApply) {

@@ -650,6 +650,28 @@ th.srt-desc::after { content:" \25BC"; font-size:10px; }
   background: radial-gradient(ellipse at center, rgba(0,0,0,0.70) 0%, rgba(0,0,0,0.92) 100%);
 }
 
+/* ===================== Календарь «Задать дни» ===================== */
+.modal-days { width: min(1120px, 100%); }
+.days-cal { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.dc-month { border: 1px solid var(--border); border-radius: var(--radius); padding: 8px 10px 10px; background: var(--panel); }
+.dc-title { text-align: center; font-weight: 600; margin-bottom: 6px; }
+.dc-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.dc-wd { text-align: center; font-size: 11px; color: var(--muted); padding-bottom: 2px; }
+.dc-day {
+  border: 1px solid transparent; border-radius: 6px; padding: 4px 0;
+  text-align: center; font-size: 12px; font-family: inherit; cursor: pointer;
+  background: var(--panel2); color: var(--text);
+}
+.dc-day:hover { border-color: var(--accent); }
+.dc-day.on { background: #16a34a; border-color: #16a34a; color: #fff; font-weight: 600; }
+.dc-day.on:hover { filter: brightness(1.08); }
+.dc-day.empty { background: transparent; cursor: default; }
+.dc-day.out { background: transparent; color: var(--muted); opacity: .45; cursor: not-allowed; }
+.dc-day.out:hover { border-color: transparent; }
+.days-tools { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+@media (max-width: 1000px) { .days-cal { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) { .days-cal { grid-template-columns: 1fr; } }
+
 /* ============================================================
    MOBILE / RESPONSIVE  (styles only, no markup changes)
    ============================================================ */

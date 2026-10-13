@@ -4,6 +4,7 @@ import functools
 import os
 import json
 import re
+import datetime
 import urllib.request
 import urllib.error
 from flask import (
@@ -494,6 +495,34 @@ def group_page(group_id):
     tab = request.args.get("tab", "attendance")
     month = request.args.get("month", "") or time_now("%Y-%m")
 
+    # название программы группы и список всех групп (для быстрого перехода)
+    all_groups = list(client.get_groups())
+    event_id = group.get("event_id") if isinstance(group, dict) else None
+    program_name = None
+    in_list = False
+    for g in all_groups:
+        if str(g.get("id")) == str(group_id):
+            program_name = g.get("program_name")
+            in_list = True
+            break
+    if not program_name and event_id is not None:
+        try:
+            program_name = (client.get_program(event_id) or {}).get("name")
+        except Exception:
+            program_name = None
+    if not in_list and isinstance(group, dict):
+        all_groups.append({
+            "id": group_id,
+            "name": group.get("name"),
+            "event_id": event_id,
+            "program_name": program_name,
+        })
+    groups_by_program = {}
+    for g in all_groups:
+        pn = g.get("program_name") or ("Программа #" + str(g.get("event_id")))
+        groups_by_program.setdefault(pn, []).append(g)
+    groups_by_program = sorted(groups_by_program.items(), key=lambda kv: kv[0].lower())
+
     # заявки показываем под годом набора (enroll_year), а не под годом
     # посещаемости: новые/принятые заявки регистрируются на год набора
     orders = client.get_orders(group_id=group_id, academic_year=client.enroll_year)
@@ -540,6 +569,8 @@ def group_page(group_id):
     return render_template(
         "group.html",
         group=group,
+        program_name=program_name,
+        groups_by_program=groups_by_program,
         members=members,
         dates=dates,
         lessons=lessons,
@@ -894,6 +925,178 @@ def cancel_day(group_id):
         return jsonify({"ok": False, "error": str(e)}), 400
     except Exception as e:
         return jsonify({"ok": False, "error": str(e)}), 400
+
+
+# ---------------------------------------------------- календарь «Задать дни»
+def _sched_day10(value):
+    """Первые 10 символов даты ('YYYY-MM-DD') или пустая строка."""
+    return (value or "")[:10]
+
+
+def _sched_active(row):
+    """Активен ли день расписания (с учётом исключений add/cancel).
+
+    ``/api/attendance/dates/get`` возвращает строку и для отменённых дней —
+    активный cancel лежит в ``exclusions``. День считается «есть», если нет
+    активной отмены и (задано время занятия либо есть активное добавление).
+    """
+    ex = row.get("exclusions") or []
+    if any(e.get("is_active") and e.get("type") == "cancel" for e in ex):
+        return False
+    if row.get("times"):
+        return True
+    return any(e.get("is_active") and e.get("type") == "add" for e in ex)
+
+
+def _schedule_range(schedule, year):
+    """Период календаря: из расписания (period_from/to), иначе учебный год."""
+    froms = [_sched_day10(s.get("period_from")) for s in (schedule or []) if _sched_day10(s.get("period_from"))]
+    tos = [_sched_day10(s.get("period_to")) for s in (schedule or []) if _sched_day10(s.get("period_to"))]
+    if froms and tos:
+        return min(froms), max(tos)
+    return f"{int(year):04d}-09-01", f"{int(year) + 1:04d}-08-31"
+
+
+def _schedule_defaults(schedule):
+    """Шаблон занятия по умолчанию из расписания (КТП) группы.
+
+    by_weekday — период на каждый день недели (1=Пн..7=Вс), generic — общий.
+    """
+    by_wd = {}
+    for s in (schedule or []):
+        ts = (s.get("time_start") or "")
+        tm = ts[11:16] if len(ts) >= 16 else (ts[:5] if len(ts) >= 5 else "")
+        breaks = []
+        for b in (s.get("breaks") or []):
+            try:
+                breaks.append(int(b))
+            except (TypeError, ValueError):
+                continue
+        period = {
+            "time_start": tm or "14:00",
+            "duration": _norm_duration(s.get("duration")),
+            "duration_length": _norm_int(s.get("duration_length"), 45),
+            "breaks": breaks,
+        }
+        for wd in (s.get("week_days") or []):
+            try:
+                by_wd[int(wd)] = period
+            except (TypeError, ValueError):
+                continue
+    generic = next(iter(by_wd.values()),
+                   {"time_start": "14:00", "duration": 2, "duration_length": 45, "breaks": []})
+    return {"by_weekday": by_wd, "generic": generic, "has_schedule": bool(schedule)}
+
+
+def _norm_duration(value, default=2):
+    """Длительность в акад. занятиях — число (int, если целое), как ждёт API."""
+    try:
+        d = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        d = float(default)
+    return int(d) if d == int(d) else d
+
+
+def _norm_int(value, default=45):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _periods_for_date(date_str, defaults):
+    """Периоды занятия для даты: время берём по дню недели из расписания группы."""
+    by_wd = defaults.get("by_weekday") or {}
+    try:
+        wd = datetime.date.fromisoformat(date_str).isoweekday()
+    except Exception:
+        wd = None
+    period = (by_wd.get(wd) or defaults.get("generic")
+              or {"time_start": "14:00", "duration": 2, "duration_length": 45, "breaks": []})
+    return [dict(period)]
+
+
+def _schedule_source(client, group_id, group):
+    """Расписание группы: текущий год, иначе прошлый. Возвращает (schedule, from_prev)."""
+    schedule = (group.get("schedule") or []) if isinstance(group, dict) else []
+    if schedule:
+        return schedule, False
+    try:
+        prev_schedule = client.get_group_schedule(group_id, str(int(client.year) - 1)) or []
+    except Exception:
+        prev_schedule = []
+    return prev_schedule, True
+
+
+@app.route("/group/<int:group_id>/schedule/days")
+@login_required
+@safe
+def schedule_days_get(group_id):
+    """Дни расписания группы для календаря «Задать дни» + шаблон занятия."""
+    client = get_client()
+    group = client.get_group(group_id)
+    schedule, prev_used = _schedule_source(client, group_id, group)
+    rng_from, rng_to = _schedule_range(schedule, client.year)
+    try:
+        rows = client.get_dates_range(group_id, rng_from, rng_to)
+    except Exception:
+        rows = []
+    days = sorted({_sched_day10(d.get("date")) for d in rows
+                   if _sched_day10(d.get("date")) and _sched_active(d)})
+    return jsonify({
+        "ok": True,
+        "range": {"from": rng_from, "to": rng_to},
+        "days": days,
+        "defaults": _schedule_defaults(schedule),
+        "year": client.year,
+        "from_prev_year": prev_used,
+    })
+
+
+@app.route("/group/<int:group_id>/schedule/days", methods=["POST"])
+@login_required
+@safe
+def schedule_days_set(group_id):
+    """Сохранить набор дней расписания (добавить недостающие, убрать лишние)."""
+    client = get_client()
+    data = request.get_json(silent=True) or {}
+    payload = data.get("data") or data
+    wanted_set = set()
+    for d in (payload.get("days") or []):
+        ds = str(d)[:10]
+        if re.match(r"^\d{4}-\d{2}-\d{2}$", ds):
+            wanted_set.add(ds)
+
+    group = client.get_group(group_id)
+    schedule, _ = _schedule_source(client, group_id, group)
+    defaults = _schedule_defaults(schedule)
+    rng_from, rng_to = _schedule_range(schedule, client.year)
+    try:
+        rows = client.get_dates_range(group_id, rng_from, rng_to)
+    except Exception:
+        rows = []
+    existing = {_sched_day10(d.get("date")) for d in rows
+                if _sched_day10(d.get("date")) and _sched_active(d)}
+
+    to_add = sorted(wanted_set - existing)
+    to_remove = sorted(existing - wanted_set)
+
+    added = removed = 0
+    errors = []
+    for ds in to_add:
+        try:
+            client.add_schedule_date(group_id, ds + " 00:00:00", _periods_for_date(ds, defaults))
+            added += 1
+        except Exception as e:
+            errors.append(f"{ds}: {e}")
+    for ds in to_remove:
+        try:
+            client.cancel_schedule_date(group_id, ds + " 00:00:00")
+            removed += 1
+        except Exception as e:
+            errors.append(f"{ds}: {e}")
+
+    return jsonify({"ok": not errors, "added": added, "removed": removed, "errors": errors[:20]})
 
 
 @app.route("/group/<int:group_id>/accept", methods=["POST"])
