@@ -55,8 +55,12 @@
     </div>
 
     <div class="panel mb">
-      <div class="panel-title">🗓 Занятия сегодня
+      <div class="panel-title">🗓 Занятия
         <span class="small muted" id="todayDate"></span>
+        <span class="today-tabs">
+          <button type="button" class="tab active" id="todayTab0" onclick="loadToday(0)">Сегодня</button>
+          <button type="button" class="tab" id="todayTab1" onclick="loadToday(1)">Завтра</button>
+        </span>
         <button type="button" class="panel-refresh" id="todayRefresh" onclick="loadToday()" title="Обновить">↻</button>
       </div>
       <div id="todayBody"><div class="empty">Загрузка…</div></div>
@@ -272,19 +276,26 @@
       .replace(/"/g, '&quot;');
   }
 
-  // ---------------- Дашборд: занятия сегодня ----------------
-  function loadToday() {
+  // ---------------- Дашборд: занятия сегодня / завтра ----------------
+  var TODAY_OFFSET = 0;
+  function loadToday(offset) {
+    if (offset === undefined || offset === null) { offset = TODAY_OFFSET; }
+    TODAY_OFFSET = offset;
     var body = document.getElementById('todayBody');
     var btn = document.getElementById('todayRefresh');
     if (!body) return;
+    var t0 = document.getElementById('todayTab0');
+    var t1 = document.getElementById('todayTab1');
+    if (t0) { t0.classList.toggle('active', offset === 0); }
+    if (t1) { t1.classList.toggle('active', offset === 1); }
     body.innerHTML = '<div class="empty">Загрузка…</div>';
     if (btn) { btn.classList.add('spin'); btn.disabled = true; }
-    fetch('/api/dashboard_today').then(function (r) { return r.json(); }).then(function (res) {
+    fetch('/api/dashboard_today?offset=' + offset).then(function (r) { return r.json(); }).then(function (res) {
       if (btn) { btn.classList.remove('spin'); btn.disabled = false; }
       if (!res.ok) { body.innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>'; return; }
       document.getElementById('todayDate').textContent = res.date || '';
       var items = res.items || [];
-      if (!items.length) { body.innerHTML = '<div class="empty">Сегодня занятий нет</div>'; return; }
+      if (!items.length) { body.innerHTML = '<div class="empty">' + (offset ? 'Завтра' : 'Сегодня') + ' занятий нет</div>'; return; }
       var html = '<div class="today-list">';
       items.forEach(function (it) {
         var t = (it.times || []).map(function (x) {

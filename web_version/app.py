@@ -422,9 +422,10 @@ def index():
 @login_required
 @safe
 def api_dashboard_today():
-    """Занятия на сегодня по всем группам (ленивая догрузка дашборда).
+    """Занятия на выбранный день по всем группам (ленивая догрузка дашборда).
 
-    Для каждой группы берём даты текущего месяца и оставляем только сегодня.
+    Параметр ``offset`` — сдвиг в днях от сегодня (0 — сегодня, 1 — завтра).
+    Для каждой группы берём даты нужного месяца и оставляем только целевой день.
     Отменённые дни (активное исключение type=cancel) пропускаем.
     """
     client = get_client()
@@ -432,6 +433,16 @@ def api_dashboard_today():
     programs = client.get_programs()
     pnames = {str(p.get("id")): p.get("name") for p in programs}
     today = time_now("%Y-%m-%d")
+    try:
+        offset = int(request.args.get("offset") or 0)
+    except (TypeError, ValueError):
+        offset = 0
+    if offset:
+        try:
+            base = datetime.datetime.strptime(today, "%Y-%m-%d").date()
+            today = (base + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
+        except Exception:
+            pass
     month = today[:7]
     items = []
     for g in groups:

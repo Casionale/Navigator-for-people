@@ -293,6 +293,8 @@ a:hover { text-decoration: underline; }
 .today-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .today-item:last-child { border-bottom: none; }
 .today-time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 96px; color: var(--accent); }
+.today-tabs { display: inline-flex; gap: 4px; margin-left: 4px; }
+.today-tabs .tab { padding: 3px 12px; font-size: 13px; }
 
 /* ---------- РђСЂС…РёРІ (РЅРµР°РєС‚РёРІРЅС‹Рµ СѓС‡Р°СЃС‚РЅРёРєРё РіСЂСѓРїРїС‹) ---------- */
 .archive-block { margin-top:16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel2); }
