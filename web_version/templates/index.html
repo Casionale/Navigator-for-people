@@ -57,12 +57,9 @@
     <div class="panel mb">
       <div class="panel-title">🗓 Занятия
         <span class="small muted" id="todayDate"></span>
-        <span class="today-tabs">
-          <button type="button" class="tab active" id="todayTab0" onclick="loadToday(0)">Сегодня</button>
-          <button type="button" class="tab" id="todayTab1" onclick="loadToday(1)">Завтра</button>
-        </span>
-        <button type="button" class="panel-refresh" id="todayRefresh" onclick="loadToday()" title="Обновить">↻</button>
+        <button type="button" class="panel-refresh" id="todayRefresh" onclick="refreshToday()" title="Обновить">↻</button>
       </div>
+      <div class="today-days" id="todayDays"><span class="empty">Загрузка…</span></div>
       <div id="todayBody"><div class="empty">Загрузка…</div></div>
     </div>
 
@@ -276,26 +273,76 @@
       .replace(/"/g, '&quot;');
   }
 
-  // ---------------- Дашборд: занятия сегодня / завтра ----------------
-  var TODAY_OFFSET = 0;
-  function loadToday(offset) {
-    if (offset === undefined || offset === null) { offset = TODAY_OFFSET; }
-    TODAY_OFFSET = offset;
+  // ---------------- Дашборд: лента дней с занятиями ----------------
+  var TODAY_DAY = null;          // выбранная дата YYYY-MM-DD
+  var WEEKDAYS = ['Вс', 'Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб'];
+
+  function addDays(dateStr, n) {
+    var d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  function dayChipHtml(date, today, tomorrow) {
+    var label, week = '';
+    if (date === today) { label = 'Сегодня'; }
+    else if (date === tomorrow) { label = 'Завтра'; }
+    else {
+      var p = date.split('-');
+      week = WEEKDAYS[new Date(date + 'T00:00:00').getDay()];
+      label = p[2] + '.' + p[1];
+    }
+    return '<button type="button" class="day-chip" data-date="' + date + '" onclick="loadToday(\'' + date + '\')"' +
+      ' title="' + date + '">' +
+      (week ? '<span class="dc-week">' + week + '</span>' : '') + esc(label) + '</button>';
+  }
+
+  function renderDaysStrip(days, today, selected) {
+    var wrap = document.getElementById('todayDays');
+    if (!wrap) return;
+    var tomorrow = addDays(today, 1);
+    var strip = [today, tomorrow].concat(days.filter(function (d) { return d > tomorrow; }));
+    var html = '';
+    strip.forEach(function (d) { html += dayChipHtml(d, today, tomorrow); });
+    wrap.innerHTML = html;
+    var chosen = selected;
+    if (!chosen || strip.indexOf(chosen) === -1) { chosen = strip.indexOf(today) !== -1 ? today : strip[0]; }
+    loadToday(chosen);
+  }
+
+  function loadDays(selected) {
+    var wrap = document.getElementById('todayDays');
+    if (wrap) { wrap.innerHTML = '<span class="empty">Загрузка…</span>'; }
+    fetch('/api/dashboard_days').then(function (r) { return r.json(); }).then(function (res) {
+      if (!res.ok) { if (wrap) { wrap.innerHTML = '<span class="empty">' + esc(res.error || 'Ошибка') + '</span>'; } return; }
+      renderDaysStrip(res.days || [], res.today, selected);
+    }).catch(function () {
+      if (wrap) { wrap.innerHTML = '<span class="empty">Ошибка сети</span>'; }
+    });
+  }
+
+  function refreshToday() { loadDays(TODAY_DAY); }
+
+  function loadToday(date) {
+    if (!date) { date = TODAY_DAY; }
+    if (!date) { return; }
+    TODAY_DAY = date;
+    var chips = document.querySelectorAll('#todayDays .day-chip');
+    for (var i = 0; i < chips.length; i++) {
+      chips[i].classList.toggle('active', chips[i].getAttribute('data-date') === date);
+    }
     var body = document.getElementById('todayBody');
     var btn = document.getElementById('todayRefresh');
     if (!body) return;
-    var t0 = document.getElementById('todayTab0');
-    var t1 = document.getElementById('todayTab1');
-    if (t0) { t0.classList.toggle('active', offset === 0); }
-    if (t1) { t1.classList.toggle('active', offset === 1); }
     body.innerHTML = '<div class="empty">Загрузка…</div>';
     if (btn) { btn.classList.add('spin'); btn.disabled = true; }
-    fetch('/api/dashboard_today?offset=' + offset).then(function (r) { return r.json(); }).then(function (res) {
+    fetch('/api/dashboard_today?date=' + date).then(function (r) { return r.json(); }).then(function (res) {
       if (btn) { btn.classList.remove('spin'); btn.disabled = false; }
       if (!res.ok) { body.innerHTML = '<div class="empty">' + esc(res.error || 'Ошибка') + '</div>'; return; }
-      document.getElementById('todayDate').textContent = res.date || '';
+      var lbl = document.getElementById('todayDate');
+      if (lbl) { lbl.textContent = res.date || date; }
       var items = res.items || [];
-      if (!items.length) { body.innerHTML = '<div class="empty">' + (offset ? 'Завтра' : 'Сегодня') + ' занятий нет</div>'; return; }
+      if (!items.length) { body.innerHTML = '<div class="empty">Занятий нет</div>'; return; }
       var html = '<div class="today-list">';
       items.forEach(function (it) {
         var t = (it.times || []).map(function (x) {
@@ -679,6 +726,6 @@
     sortTable(table, 'id', 'asc');   // по умолчанию — ID по возрастанию
   });
 
-  loadToday();
+  loadDays();
 </script>
 {% endblock %}

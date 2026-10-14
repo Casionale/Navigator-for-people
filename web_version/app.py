@@ -418,14 +418,44 @@ def index():
     )
 
 
+def _dash_day_cancelled(d):
+    """True, если у даты занятий активно исключение type=cancel."""
+    exclusions = d.get("exclusions") or []
+    return any(isinstance(e, dict) and e.get("type") == "cancel" and e.get("is_active")
+               for e in exclusions)
+
+
+def _dash_times(d):
+    out = []
+    for t in d.get("times") or []:
+        st = t.get("start") or ""
+        en = t.get("end") or ""
+        out.append({
+            "start": st[11:16] if len(st) >= 16 else st,
+            "end": en[11:16] if len(en) >= 16 else en,
+        })
+    return out
+
+
+def _dash_item(g, d, pnames):
+    return {
+        "group_id": g.get("id"),
+        "group_name": g.get("name"),
+        "program": pnames.get(str(g.get("event_id"))) or g.get("program_name"),
+        "teacher": g.get("teacher"),
+        "times": _dash_times(d),
+    }
+
+
 @app.route("/api/dashboard_today")
 @login_required
 @safe
 def api_dashboard_today():
     """Занятия на выбранный день по всем группам (ленивая догрузка дашборда).
 
-    Параметр ``offset`` — сдвиг в днях от сегодня (0 — сегодня, 1 — завтра).
-    Для каждой группы берём даты нужного месяца и оставляем только целевой день.
+    Параметры (взаимоисключающие):
+      * ``date=YYYY-MM-DD`` — конкретный день;
+      * ``offset=N`` — сдвиг в днях от сегодня (0 — сегодня, 1 — завтра).
     Отменённые дни (активное исключение type=cancel) пропускаем.
     """
     client = get_client()
@@ -433,17 +463,22 @@ def api_dashboard_today():
     programs = client.get_programs()
     pnames = {str(p.get("id")): p.get("name") for p in programs}
     today = time_now("%Y-%m-%d")
-    try:
-        offset = int(request.args.get("offset") or 0)
-    except (TypeError, ValueError):
-        offset = 0
-    if offset:
+    date_arg = (request.args.get("date") or "").strip()
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", date_arg):
+        day = date_arg
+    else:
         try:
-            base = datetime.datetime.strptime(today, "%Y-%m-%d").date()
-            today = (base + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
-        except Exception:
-            pass
-    month = today[:7]
+            offset = int(request.args.get("offset") or 0)
+        except (TypeError, ValueError):
+            offset = 0
+        day = today
+        if offset:
+            try:
+                base = datetime.datetime.strptime(today, "%Y-%m-%d").date()
+                day = (base + datetime.timedelta(days=offset)).strftime("%Y-%m-%d")
+            except Exception:
+                pass
+    month = day[:7]
     items = []
     for g in groups:
         gid = g.get("id")
@@ -452,29 +487,52 @@ def api_dashboard_today():
         except Exception:
             continue
         for d in dates or []:
-            if (d.get("date") or "")[:10] != today:
+            if (d.get("date") or "")[:10] != day:
                 continue
-            exclusions = d.get("exclusions") or []
-            if any(isinstance(e, dict) and e.get("type") == "cancel" and e.get("is_active")
-                   for e in exclusions):
+            if _dash_day_cancelled(d):
                 continue
-            times = []
-            for t in d.get("times") or []:
-                st = t.get("start") or ""
-                en = t.get("end") or ""
-                times.append({
-                    "start": st[11:16] if len(st) >= 16 else st,
-                    "end": en[11:16] if len(en) >= 16 else en,
-                })
-            items.append({
-                "group_id": gid,
-                "group_name": g.get("name"),
-                "program": pnames.get(str(g.get("event_id"))) or g.get("program_name"),
-                "teacher": g.get("teacher"),
-                "times": times,
-            })
+            if not (d.get("times")):
+                continue
+            items.append(_dash_item(g, d, pnames))
     items.sort(key=lambda it: (it["times"][0]["start"] if it["times"] else "99:99"))
-    return jsonify({"ok": True, "date": today, "items": items})
+    return jsonify({"ok": True, "date": day, "items": items})
+
+
+@app.route("/api/dashboard_days")
+@login_required
+@safe
+def api_dashboard_days():
+    """Ближайшие дни с занятиями по всем группам (для ленты дат на дашборде).
+
+    Идём вперёд от сегодня на горизонт (150 дней), собираем уникальные
+    даты, где хотя бы в одной группе есть занятие (не отменённое), сортируем
+    и ограничиваем количество. Сегодня/завтра добавляет фронтенд.
+    """
+    horizon = 150
+    client = get_client()
+    groups = client.get_groups()
+    today = time_now("%Y-%m-%d")
+    try:
+        base = datetime.datetime.strptime(today, "%Y-%m-%d").date()
+        date_end = (base + datetime.timedelta(days=horizon)).strftime("%Y-%m-%d")
+    except Exception:
+        date_end = today
+    days = set()
+    for g in groups:
+        gid = g.get("id")
+        try:
+            dates = client.get_dates_range(gid, today, date_end)
+        except Exception:
+            continue
+        for d in dates or []:
+            dd = (d.get("date") or "")[:10]
+            if not dd or dd < today:
+                continue
+            if _dash_day_cancelled(d) or not (d.get("times")):
+                continue
+            days.add(dd)
+    days = sorted(days)[:24]
+    return jsonify({"ok": True, "today": today, "days": days})
 
 
 # ------------------------------------------------------------------ посещаемость (выбор группы)

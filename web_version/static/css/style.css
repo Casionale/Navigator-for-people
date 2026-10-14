@@ -17,7 +17,17 @@
   --radius: 16px;
   --radius-sm: 10px;
   --shadow: 0 1px 2px rgba(16, 24, 40, .06), 0 8px 24px rgba(16, 24, 40, .06);
+  --sb-size: 10px;
+  --sb-glow: none;
 }
+
+/* --- РЎРєСЂРѕР»Р»Р±Р°СЂС‹: СЂР°Р·РјРµСЂ Рё СЃРІРµС‡РµРЅРёРµ РїРѕ С‚РµРјР°Рј --- */
+[data-theme="sepia"] { --sb-size: 9px; }
+[data-theme="anime"] { --sb-size: 12px; --sb-glow: 0 0 6px rgba(255, 92, 158, .5); }
+[data-theme="violet"] { --sb-glow: 0 0 6px rgba(139, 92, 246, .4); }
+[data-theme="dark"] { --sb-glow: 0 0 6px rgba(124, 143, 255, .45); }
+[data-theme="ocean"] { --sb-glow: 0 0 6px rgba(56, 189, 248, .5); }
+[data-theme="ghoul"] { --sb-size: 8px; --sb-glow: 0 0 7px rgba(211, 34, 31, .65); }
 [data-theme="dark"] {
   --bg: #0f1216;
   --panel: #171c22;
@@ -169,6 +179,34 @@
 
 
 * { box-sizing: border-box; }
+
+/* --- РљР°СЃС‚РѕРјРЅС‹Рµ СЃРєСЂРѕР»Р»Р±Р°СЂС‹ (С‚РѕРЅРєРёРµ, РїРѕРґ С‚РµРјСѓ) --- */
+/* Р’Р°Р¶РЅРѕ: scrollbar-width/color РІРєР»СЋС‡Р°РµРј С‚РѕР»СЊРєРѕ С‚Р°Рј, РіРґРµ РќР•Рў ::-webkit-scrollbar
+   (Firefox), РёРЅР°С‡Рµ Chromium РёРіРЅРѕСЂРёСЂСѓРµС‚ РІРµСЃСЊ Р±Р»РѕРє ::-webkit-scrollbar. */
+@supports not selector(::-webkit-scrollbar) {
+  * { scrollbar-width: thin; scrollbar-color: var(--accent) transparent; }
+}
+::-webkit-scrollbar { width: var(--sb-size); height: var(--sb-size); }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background-color: var(--accent);
+  background-image:
+    repeating-linear-gradient(45deg, rgba(255, 255, 255, .22) 0 2px, transparent 2px 5px),
+    linear-gradient(135deg, var(--accent), var(--accent-text));
+  border: 2px solid transparent;
+  background-clip: padding-box;
+  border-radius: 999px;
+  transition: background-color .15s;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--accent-text);
+  background-image: linear-gradient(135deg, var(--accent), var(--accent-text));
+  border-width: 1px;
+  box-shadow: var(--sb-glow);
+}
+::-webkit-scrollbar-corner { background: transparent; }
+html { scrollbar-gutter: stable; }
+
 html, body { margin: 0; padding: 0; }
 body {
   background: var(--bg);
@@ -258,6 +296,7 @@ a:hover { text-decoration: underline; }
 .wrap { max-width: 1280px; margin: 0 auto; padding: 20px; }
 .grid { display: grid; gap: 16px; }
 .grid-main { display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start; }
+.grid-main > div { min-width: 0; }
 @media (max-width: 900px) { .grid-main { grid-template-columns: 1fr; } }
 
 /* ---------- Р‘РµРЅС‚Рѕ-РєР°СЂС‚РѕС‡РєРё ---------- */
@@ -293,8 +332,30 @@ a:hover { text-decoration: underline; }
 .today-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .today-item:last-child { border-bottom: none; }
 .today-time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 96px; color: var(--accent); }
-.today-tabs { display: inline-flex; gap: 4px; margin-left: 4px; }
-.today-tabs .tab { padding: 3px 12px; font-size: 13px; }
+.today-days { display: flex; gap: 6px; overflow-x: auto; max-width: 100%; padding: 0 0 10px; margin: 0 0 4px; }
+.today-days::-webkit-scrollbar { height: 8px; }
+.today-days::-webkit-scrollbar-button {
+  display: block;
+  width: 8px;
+  height: 8px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+}
+.today-days::-webkit-scrollbar-button:horizontal:decrement {
+  background-image: conic-gradient(from 63.43deg at 0% 50%,
+    var(--accent) 0deg 53.14deg, transparent 53.14deg);
+}
+.today-days::-webkit-scrollbar-button:horizontal:increment {
+  background-image: conic-gradient(from 243.43deg at 100% 50%,
+    var(--accent) 0deg 53.14deg, transparent 53.14deg);
+}
+.today-days .empty { padding: 2px 0; }
+.day-chip { flex: 0 0 auto; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel2); color: var(--text); cursor: pointer; font-weight: 500; font-size: 13px; white-space: nowrap; line-height: 1; }
+.day-chip:hover { border-color: var(--accent); }
+.day-chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.day-chip .dc-week { opacity: .7; margin-right: 4px; font-weight: 400; }
+.day-chip.active .dc-week { opacity: .85; }
 
 /* ---------- РђСЂС…РёРІ (РЅРµР°РєС‚РёРІРЅС‹Рµ СѓС‡Р°СЃС‚РЅРёРєРё РіСЂСѓРїРїС‹) ---------- */
 .archive-block { margin-top:16px; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel2); }
