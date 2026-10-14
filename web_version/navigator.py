@@ -17,6 +17,10 @@ class NavigatorError(Exception):
     """Ошибка API (err_code != 0) или сетевой сбой."""
 
 
+class NavigatorAuthError(NavigatorError):
+    """Авторизация недействительна (токен истёк/отозван) — нужен повторный вход."""
+
+
 class NavigatorClient:
     def __init__(self, email, password, year="2026", enroll_year=None):
         self.email = email
@@ -142,6 +146,9 @@ class NavigatorClient:
             b = r.json()
         except Exception:
             b = {}
+        # Истёкшая/отозванная авторизация: HTTP 401/403 либо err_code 401/403.
+        if r.status_code in (401, 403) or b.get("err_code") in (401, 403):
+            raise NavigatorAuthError("Сессия истекла — войдите заново")
         if "err_code" not in b:
             raise NavigatorError(f"Некорректный ответ ({r.status_code})")
         if b.get("err_code") != 0 or not b.get("success", True):

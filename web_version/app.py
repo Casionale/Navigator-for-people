@@ -19,7 +19,7 @@ from flask import (
     g,
 )
 
-from navigator import NavigatorClient, NavigatorError
+from navigator import NavigatorClient, NavigatorError, NavigatorAuthError
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = "nav-web-mvp-secret-key"  # меняется на проде
@@ -64,9 +64,9 @@ def get_client():
     if sid and sid in _clients:
         c = _clients[sid]
         if not c.access_token:
-            raise NavigatorError("Нет доступа")
+            raise NavigatorAuthError("Сессия истекла — войдите заново")
         return c
-    raise NavigatorError("Не авторизован")
+    raise NavigatorAuthError("Сессия истекла — войдите заново")
 
 
 def get_admin_client():
@@ -125,14 +125,42 @@ def login_required(view):
     return wrapped
 
 
+def _drop_session():
+    """Сбрасывает серверную сессию текущего пользователя."""
+    sid = session.get("sid")
+    _clients.pop(sid, None)
+    _admin_clients.pop(sid, None)
+    session.clear()
+
+
 def safe(fn):
-    """Обёртка, превращающая NavigatorError в flash + редирект на главную."""
+    """Обёртка над вьюхами: аккуратно обрабатывает ошибки Navigator.
+
+    Важно: НЕЛЬЗЯ делать редирект на главную из самой главной — это даёт
+    бесконечное «циклическое перенаправление» (ERR_TOO_MANY_REDIRECTS),
+    когда ошибка устойчивая. Поэтому:
+      * ошибка авторизации -> сброс сессии и переход на /login;
+      * прочие ошибки на главной -> страница ошибки (без редиректа);
+      * прочие ошибки на других страницах -> flash + редирект на главную;
+      * для /api/* всегда отдаём JSON, а не HTML-редирект.
+    """
     @functools.wraps(fn)
     def wrapped(*args, **kwargs):
+        is_api = request.path.startswith("/api/")
         try:
             return fn(*args, **kwargs)
+        except NavigatorAuthError:
+            _drop_session()
+            if is_api:
+                return jsonify({"ok": False, "error": "Сессия истекла — войдите заново"}), 401
+            flash("Сессия истекла — войдите заново", "error")
+            return redirect(url_for("login"))
         except NavigatorError as e:
+            if is_api:
+                return jsonify({"ok": False, "error": str(e)}), 502
             flash(str(e), "error")
+            if request.endpoint == "index":
+                return render_template("error.html", message=str(e)), 502
             return redirect(url_for("index"))
     return wrapped
 
